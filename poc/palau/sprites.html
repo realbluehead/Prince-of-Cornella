@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galeria d'animacions</title>
+<style>
+  body { margin: 0; background: #14121f; color: #e8dcc0; font: 14px/1.4 Georgia, serif; }
+  header { padding: 16px; text-align: center; }
+  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 2px; }
+  a { color: #f0b85a; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; padding: 16px; }
+  .cell { background: #22203a; border: 1px solid #3a3658; border-radius: 6px; text-align: center; padding: 6px; }
+  canvas { width: 168px; height: 192px; image-rendering: pixelated; display: block; margin: 0 auto; }
+  .cell span { font-family: monospace; font-size: 12px; color: #b8aee0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Galeria d'animacions</h1>
+  <div>Totes les animacions de l'esquelet procedural · <a href="index.html">tornar al joc</a></div>
+</header>
+<div class="grid" id="grid"></div>
+<script src="js/sprite.js"></script>
+<script src="js/anims.js"></script>
+<script>
+  const SWORD = ['drawSword', 'sheathe', 'garde', 'advance', 'retreat', 'gardeTurn', 'strike', 'block', 'hurt'];
+  const R = new Sprite.Renderer();
+  const cells = [];
+  const grid = document.getElementById('grid');
+  function add(name, kind) {
+    const div = document.createElement('div');
+    div.className = 'cell';
+    const cv = document.createElement('canvas');
+    cv.width = 56; cv.height = 64;
+    div.appendChild(cv);
+    const sp = document.createElement('span');
+    sp.textContent = name + (kind === 'guard' ? ' (guarda)' : '');
+    div.appendChild(sp);
+    grid.appendChild(div);
+    cells.push({ name, kind, ctx: cv.getContext('2d'), anim: Anims.A[name] });
+  }
+  for (const k in Anims.A) add(k, 'prince');
+  for (const k of SWORD) add(k, 'guard');
+  let t = 0;
+  function frame() {
+    t++;
+    for (const c of cells) {
+      const total = c.anim.total + (c.anim.loop ? 0 : 30);
+      const p = Anims.poseAt(c.anim, t % total);
+      const img = Sprite.drawPose(R, p, c.kind, { scarf: 8 + Math.sin(t / 15) * 6 });
+      const hangLike = /hang|climb/.test(c.name);
+      c.ctx.clearRect(0, 0, 56, 64);
+      c.ctx.fillStyle = '#4a4766';
+      const gy = hangLike ? 18 : 58;
+      c.ctx.fillRect(0, gy, 56, 2);
+      c.ctx.drawImage(img, 28 - Sprite.OX, gy - Sprite.OY);
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+</script>
+</body>
+</html>
