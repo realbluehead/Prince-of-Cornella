@@ -35,7 +35,7 @@
     cv.width = 56; cv.height = 64;
     div.appendChild(cv);
     const sp = document.createElement('span');
-    sp.textContent = name + (kind === 'guard' ? ' (guarda)' : kind === 'mykola' ? ' (Mykola)' : '');
+    sp.textContent = name + (kind === 'guard' ? ' (guarda)' : kind === 'mykola' ? ' (Mykola)' : kind === 'olivia' ? ' (Olivia)' : '');
     div.appendChild(sp);
     grid.appendChild(div);
     cells.push({ name, kind, ctx: cv.getContext('2d'), anim: Anims.A[name] });
@@ -43,6 +43,7 @@
   for (const k in Anims.A) add(k, 'prince');
   for (const k of SWORD) add(k, 'guard');
   for (const k of SWORD) add(k, 'mykola');
+  for (const k of ['walk', 'sway', 'throw']) add(k, 'olivia');
   let t = 0;
   function frame() {
     t++;

@@ -140,6 +140,7 @@
       return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shoutCool: 0, home: { x: a.x, y: a.y } });
     });
     debris = []; rubble = []; parts = []; tick = 0;
+    newOlivia();
     Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
     overlay.classList.add('hidden');
     if (window.speechSynthesis) speechSynthesis.cancel();
@@ -160,7 +161,7 @@
       Object.assign(f, { x: f.home.x, y: f.home.y, face: -1, hp: f.maxHp, sword: false, talk: 0, cool: 60 });
       f.go('idle', 'idle', 0);
     }
-    debris = []; parts = [];
+    debris = []; parts = []; olivia.room = -1;
     Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
     overlay.classList.add('hidden');
     say('Sala ' + (room + 1) + '. Torna-ho a provar!');
@@ -677,6 +678,101 @@
     }
   }
 
+  // ---- l'Olivia i el seu gos ------------------------------------------------------
+  // Passegen per algunes sales: per a cada sala, la fila i les columnes del tros de terra
+  // on camina. Quan en Diego entra en una d'aquestes sales, l'Olivia hi apareix.
+  const OLIVIA_PATHS = { 0: [1, 4, 9], 1: [1, 10, 15], 3: [0, 33, 39], 4: [0, 40, 49], 6: [2, 61, 69], 7: [0, 70, 79] };
+  const KPOP = ['♪ Saranghae~ ♪', '♪ Annyeong! ♪', '♪ Hwaiting! ♪', '♪ Ya-ya-ya, k-pop! ♪'];
+  const CRITTER_COLORS = ['#7ad36b', '#6ab0f0', '#c48ae8', '#f0c85a'];
+  let olivia, dog, critter, ball;
+
+  function newOlivia() {
+    olivia = new Actor('olivia', 0, 0, 1);
+    Object.assign(olivia, { size: 0.8, room: -1, next: 200, bubbleH: 50 });
+    dog = { x: 0, y: 0, face: 1, moving: false, t: 0, talk: 0, bubbleH: 26 };
+    critter = null; ball = null;
+  }
+
+  function updateOlivia() {
+    const o = olivia, room = Math.floor(prince.x / ROOMW), path = OLIVIA_PATHS[room];
+    if (!path) { o.room = -1; return; }
+    const [r, c0, c1] = path, lo = c0 * TW + 10, hi = (c1 + 1) * TW - 10;
+    if (o.room !== room) {
+      // apareix en un punt qualsevol del seu tros de camí
+      Object.assign(o, { room, x: lo + Math.random() * (hi - lo), y: floorY(r), face: Math.random() < 0.5 ? 1 : -1, greeted: false, next: 120 });
+      o.go('walk', 'walk', 0);
+      Object.assign(dog, { x: o.x - o.face * 14, y: o.y, face: o.face });
+      critter = null; ball = null;
+    }
+    o.at++;
+    if (o.talk > 0) o.talk--;
+    switch (o.state) {
+      case 'walk':
+        o.x += o.face * 0.45;
+        if (o.x < lo || o.x > hi) { o.x = Math.max(lo, Math.min(hi, o.x)); o.face = -o.face; }
+        if (--o.next <= 0) {
+          o.next = 200 + Math.random() * 250;
+          const k = Math.random();
+          if (k < 0.45) { o.go('sing', 'sway', 6); o.ht = 0; }
+          else if (k < 0.85) { o.go('hunt', 'idle', 6); o.ht = 0; }
+        }
+        break;
+      case 'sing':
+        if (o.ht++ % 80 === 0) talk(o, pick(KPOP), 70);
+        if (o.ht > 240) o.go('walk', 'walk', 6);
+        break;
+      case 'hunt': huntStep(o, lo, hi); break;
+    }
+    // saluda en Diego quan se li acosta
+    if (!o.greeted && prince.alive && prince.row === rowOf(o.y) && Math.abs(prince.x - o.x) < 50) { o.greeted = true; talk(o, 'Hola, Diego!', 100); }
+    updateDog(o);
+  }
+
+  // caçar un bitxo: n'apareix un, l'Olivia li llança la bola i, tres sotracs després, el té (o se li escapa)
+  function huntStep(o, lo, hi) {
+    const t = ++o.ht;
+    if (t === 1) {
+      if (o.x + o.face * 40 > hi || o.x + o.face * 40 < lo) o.face = -o.face;
+      critter = { x: o.x + o.face * 40, y: o.y, color: pick(CRITTER_COLORS), state: 'free', t: 0 };
+      talk(o, 'Un bitxo salvatge!', 60);
+    }
+    if (t === 50) o.setAnim('throw', 3);
+    if (t === 66 && critter) {
+      const T = 30, x0 = o.x + o.face * 4, y0 = o.y - 18, ty = o.y - 3;
+      ball = { x: x0, y: y0, vx: (critter.x - x0) / T, vy: (ty - y0 - 0.5 * 0.15 * T * T) / T, t: 0, state: 'fly' };
+      Snd.play('swish');
+    }
+    if (ball) {
+      ball.t++;
+      if (ball.state === 'fly') {
+        ball.x += ball.vx; ball.vy += 0.15; ball.y += ball.vy;
+        if (ball.t >= 30) {
+          Object.assign(ball, { state: 'shake', t: 0, y: o.y - 3, x: critter.x });
+          critter.state = 'in'; burst(critter.x, o.y - 4, 10, '#ffffff', 1.2, 1);
+        }
+      } else if (ball.state === 'shake' && ball.t === 90) {
+        if (Math.random() < 0.75) { burst(ball.x, ball.y - 3, 14, '#ffe680', 1.2, 1); talk(o, 'T\'he caçat!', 90); critter = null; Snd.play('gulp'); }
+        else { critter.state = 'flee'; talk(o, 'Oh, s\'ha escapat!', 90); }
+        ball.state = 'done';
+      }
+    }
+    if (critter && critter.state === 'flee') { critter.x += o.face * 1.2; critter.t++; if (critter.t > 60) critter = null; }
+    if (critter && critter.state === 'free') critter.t++;
+    if (t === 200) { ball = null; critter = null; o.go('walk', 'walk', 6); }
+  }
+
+  // el gos va darrere de l'Olivia, amb la cua bellugant, i de tant en tant borda
+  function updateDog(o) {
+    dog.t++;
+    if (dog.talk > 0) dog.talk--;
+    const tx = o.x - o.face * 14, dx = tx - dog.x;
+    dog.moving = Math.abs(dx) > 3;
+    if (dog.moving) { dog.x += Math.sign(dx) * Math.min(Math.abs(dx), Math.abs(dx) > 30 ? 1.2 : 0.6); dog.face = Math.sign(dx); }
+    else dog.face = sign(o.x - dog.x);
+    dog.y = o.y;
+    if (Math.random() < 0.0015) talk(dog, 'Guau!', 50);
+  }
+
   // ---- trampes i objectes -------------------------------------------------------
   function updateWorld() {
     const p = prince;
@@ -737,17 +833,66 @@
     const img = Sprite.drawPose(R, pose, a.kind, { scarf: a.scarf, pot: a.potion && POTIONS[a.potion.ch].color });
     ctx.save();
     // entrant per la porta: es fa petit, puja l'escala i s'esvaeix dins del forat
-    let s = 1;
+    let s = a.size || 1;
     if (a.state === 'enter' && a.anim === A.walkIn) {
       const k = Math.min(1, a.at / 90), x0 = colOf(a.x) * TW - camX;
       ctx.beginPath(); ctx.rect(x0 + 3, a.y - 60, 26, 62); ctx.clip();
-      ctx.globalAlpha = 1 - 0.7 * k; s = 1 - 0.35 * k;
+      ctx.globalAlpha = 1 - 0.7 * k; s *= 1 - 0.35 * k;
       ctx.translate(0, -12 * k);
     }
     ctx.translate(Math.round(a.x - camX), Math.round(a.y));
     ctx.scale(a.face * s, s);
     ctx.drawImage(img, -Sprite.OX, -Sprite.OY);
     ctx.restore();
+  }
+
+  // el gos de l'Olivia: cadellet taronja i rodonet amb un bonyiguet gris al front.
+  // Mapes de bits mirant a la dreta; dues posicions de potes per trotar.
+  const DOG = [
+    '.........gg..',
+    '........ooo..',
+    '.t.....ooooo.',
+    '..ooooooooeoo',
+    '..oooooooooon',
+    '..ooooooooooo',
+    '..oddoooodd..',
+  ];
+  const DOG_LEGS = [['..l.l....l.l.', '..l.l....l.l.'], ['...l.l..l.l..', '...l.l..l.l..']];
+  const DOG_COL = { o: '#f08a24', d: '#c0601a', g: '#9aa0a8', e: '#111111', n: '#3a1a10', l: '#c0601a', t: '#f08a24' };
+  function drawDog(camX) {
+    const legs = DOG_LEGS[dog.moving ? (dog.t >> 3) % 2 : 0];
+    const rows = DOG.concat(legs);
+    // la cua es belluga
+    rows[2] = ((dog.t >> 2) % 2 ? '.t' : 't.') + rows[2].slice(2);
+    const x0 = Math.round(dog.x - camX), y0 = Math.round(dog.y) - rows.length - (dog.moving && (dog.t >> 3) % 2 ? 1 : 0);
+    const px = (x, y) => [dog.face > 0 ? x0 - 6 + x : x0 + 6 - x, y0 + y];
+    ctx.fillStyle = '#2a1408';
+    for (let y = 0; y < rows.length; y++) for (let x = 0; x < 13; x++) if (rows[y][x] !== '.') {
+      const [sx, sy] = px(x, y); ctx.fillRect(sx - 1, sy, 3, 1); ctx.fillRect(sx, sy - 1, 1, 3);
+    }
+    for (let y = 0; y < rows.length; y++) for (let x = 0; x < 13; x++) if (rows[y][x] !== '.') {
+      const [sx, sy] = px(x, y); ctx.fillStyle = DOG_COL[rows[y][x]]; ctx.fillRect(sx, sy, 1, 1);
+    }
+  }
+
+  // un bitxo inventat (no és cap pokémon de debò): una boleta amb orelles que fa saltirons
+  function drawCritter(camX) {
+    if (!critter || critter.state === 'in') return;
+    const x = Math.round(critter.x - camX), y = Math.round(critter.y) - 5 - (Math.floor(critter.t / 10) % 2);
+    ctx.fillStyle = '#1a1420'; ctx.fillRect(x - 3, y - 1, 7, 6); ctx.fillRect(x - 2, y - 3, 1, 2); ctx.fillRect(x + 2, y - 3, 1, 2);
+    ctx.fillStyle = critter.color; ctx.fillRect(x - 2, y, 5, 4);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 1, y + 1, 1, 1); ctx.fillRect(x + 1, y + 1, 1, 1);
+  }
+
+  // la bola de caçar: meitat vermella, meitat blanca; a terra fa sotracs
+  function drawBall(camX) {
+    if (!ball) return;
+    const wob = ball.state === 'shake' ? [0, -1, 0, 1][(ball.t >> 3) % 4] : 0;
+    const x = Math.round(ball.x - camX) + wob, y = Math.round(ball.y);
+    ctx.fillStyle = '#111111'; ctx.fillRect(x - 2, y - 3, 5, 5);
+    ctx.fillStyle = '#e03030'; ctx.fillRect(x - 1, y - 3, 3, 2);
+    ctx.fillStyle = '#f4f4f4'; ctx.fillRect(x - 1, y, 3, 1);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y - 1, 1, 1);
   }
 
   function drawFlame(x, y) {
@@ -764,7 +909,7 @@
     ctx.font = '7px monospace'; ctx.textAlign = 'center';
     const w = Math.ceil(ctx.measureText(text).width) + 8, h = 11;
     // si cau a l'abisme, la bafarada es queda a baix de tot de la pantalla
-    const hx = Math.round(a.x - camX), top = Math.max(1, Math.min(GAMEH - 16, Math.round(a.y) - 60));
+    const hx = Math.round(a.x - camX), top = Math.max(1, Math.min(GAMEH - 16, Math.round(a.y) - (a.bubbleH || 60)));
     const bx = Math.max(1, Math.min(W - w - 1, hx - (w >> 1)));
     ctx.fillStyle = '#0a0c14'; ctx.fillRect(bx - 1, top - 1, w + 2, h + 2);
     ctx.fillStyle = '#f4efe2'; ctx.fillRect(bx, top, w, h);
@@ -817,6 +962,8 @@
     }
     const inRoom = (a) => Math.floor(a.x / ROOMW) === room;
     for (const f of foes) if (inRoom(f)) drawActor(f, camX);
+    const oliviaHere = olivia.room === room;
+    if (oliviaHere) { drawCritter(camX); drawDog(camX); drawActor(olivia, camX); drawBall(camX); }
     drawActor(prince, camX);
     for (let r = 0; r < ROWS; r++) {
       for (let i = 0; i < 10; i++) {
@@ -832,6 +979,7 @@
     }
     for (const q of parts) { ctx.fillStyle = q.color; ctx.fillRect(Math.round(q.x - camX), Math.round(q.y), 1, 1); }
     for (const f of foes) if (f.talk > 0 && f.alive && inRoom(f)) drawBubble(f, camX);
+    if (oliviaHere) for (const a of [dog, olivia]) if (a.talk > 0) drawBubble(a, camX);
     if (prince.talk > 0) drawBubble(prince, camX);
     // llum càlida de les torxes
     ctx.save();
@@ -890,7 +1038,7 @@
   function step() {
     if (game.mode === 'play') {
       tick++;
-      updatePrince(); for (const f of foes) updateFoe(f); updateWorld();
+      updatePrince(); for (const f of foes) updateFoe(f); updateOlivia(); updateWorld();
       updateScarf(prince);
       prince.x = Math.max(6, Math.min(COLS * TW - 6, prince.x));
     }
@@ -912,7 +1060,7 @@
 
   // per depurar des de la consola: __game.step(n) avança n ticks encara que la pestanya no es vegi
   window.__game = {
-    get prince() { return prince; }, get foes() { return foes; }, get L() { return L; }, game, held, pressed, start,
+    get prince() { return prince; }, get foes() { return foes; }, get olivia() { return olivia; }, get dog() { return dog; }, get L() { return L; }, game, held, pressed, start,
     step(n = 1) { for (let i = 0; i < n; i++) step(); render(); },
   };
 })();

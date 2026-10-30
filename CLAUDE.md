@@ -53,6 +53,13 @@ En Mykola crida «My name is Mykola!» quan veu l'heroi, de tant en tant mentre 
 - **Ball:** després de 300 ticks quiet (`idleT`), passa a l'estat `dance` amb l'animació `macarena` o `gangnam`. Qualsevol tecla l'atura. `sing()` toca una tonada pròpia de `SONGS`, i no la melodia ni la lletra de les cançons reals, que tenen drets d'autor.
 - **Sortida:** a la porta passa a l'estat `enter`. Fa `enterTurn` fins a quedar d'esquena (pose `back: 1`, cap `HEADS.princeBack`) i després `walkIn`. `drawActor` el retalla dins del forat de la porta mentre es fa petit i s'esvaeix.
 
+### L'Olivia i el gos (personatges que no juguen)
+- `OLIVIA_PATHS` diu per a cada sala la fila i les columnes del tros de terra on passeja. Ha de ser terra continu, sense forats ni rajoles fluixes. Quan en Diego entra en una d'aquestes sales, l'Olivia hi apareix en un punt a l'atzar. Com que només es veu una sala alhora, sembla que sigui sempre la mateixa nena.
+- `updateOlivia()` va canviant entre tres estats: `walk`, `sing` (animació `sway` i una frase de `KPOP` a la bafarada) i `hunt` (`huntStep`: apareix un bitxo, l'Olivia llança la bola amb l'animació `throw`, la bola fa tres sotracs i el bitxo queda caçat o s'escapa). Saluda en Diego una sola vegada per visita.
+- El gos (`dog`, `updateDog`, `drawDog`) és un mapa de bits que segueix l'Olivia i de tant en tant borda.
+- L'Olivia es dibuixa a escala 0.8 (`size`), i per això l'ull blau fa 2 píxels: si fos d'un, l'escalat el faria desaparèixer.
+- Drets d'autor: el gos és original, només inspirat en la Pochita. Els bitxos són inventats i no hi ha pokémons de debò. Les cançons no tenen lletres reals.
+
 ### Morir i continuar
 Quan mor, la pantalla de mort ofereix continuar (Enter o tocar). `respawn()` torna a posar en Diego al `START` de la sala on ha mort (`deathRoom()`), amb la vida plena i la `maxHp` que ja tenia. El món no es reinicia: les reixes obertes, les pocions begudes, les rajoles caigudes i els enemics morts es queden igual. Els enemics vius tornen a la seva posició inicial (`home`) amb la vida plena. R crida `start()` i torna a començar el joc de zero.
 
