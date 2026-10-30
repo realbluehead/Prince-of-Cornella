@@ -121,6 +121,15 @@
         [STAND, 1],
       ],
     },
+    // estirar una palanca: allarga el braç amunt i l'estira cap avall
+    pull: {
+      frames: [
+        [STAND, 6],
+        [P({ t: 3, rs: 130, re: 20, ls: 40, le: 30 }), 10],
+        [P({ t: 10, rh: 18, rk: 30, lh: -6, lk: 22, rs: 65, re: 40, ls: 20, le: 30 }), 10],
+        [STAND, 1],
+      ],
+    },
     victory: {
       frames: [
         [STAND, 8],

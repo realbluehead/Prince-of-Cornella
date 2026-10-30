@@ -39,6 +39,16 @@
       pants: '#d8cba9', pantsD: '#a6987a', boot: '#2e1b10', bootD: '#1e1008', sash: '#d9ab2b',
       blade: '#cdd2dc', hilt: '#8a6a1e',
     },
+    // en Mykola: ulleres negres de pasta, jersei verd oliva, texans i bambes
+    mykola: {
+      outline: '#0a0c10', skin: '#efc29e', skinD: '#c48f6c', hair: '#7a5634', beard: '#7a5634',
+      beardL: '#7a5634', eye: '#1a1410', mouth: '#7a1a1a', teeth: '#f3ecdf',
+      glasses: '#040404', lens: '#e4f0f6',
+      body: '#5a6b3c', bodyL: '#7a8d52', bodyD: '#3a4526', sleeve: '#5a6b3c', sleeveD: '#3a4526',
+      fore: '#5a6b3c', foreD: '#3a4526',
+      pants: '#3d5a8a', pantsD: '#283d61', boot: '#ebe7de', bootD: '#b3ada2',
+      blade: '#dfe4ec', hilt: '#a8a8b0',
+    },
   };
   const PAL32 = {};
   for (const k in PALETTES) {
@@ -75,7 +85,23 @@
       '..SSSSSS.',
       '...SSSS..',
     ],
+    mykola: [
+      '..HHHHH..',
+      '.HHHHHHH.',
+      'HHHHHHHHH',
+      'HHHHSSSS.',
+      'HHHSShhh.',
+      'HHGGGGGGG',
+      'HsSGgSEGS',
+      'HsSGGGGGS',
+      '.sSSSSSSS',
+      '..SSSSSS.',
+      '...SSSS..',
+    ],
   };
+  HEADS.mykolaShout = HEADS.mykola.slice();
+  HEADS.mykolaShout[9] = '..SSrrrS.';
+  HEADS.mykolaShout[10] = '...SrrS..';
   HEADS.princeShout = HEADS.prince.slice();
   HEADS.princeShout[9] = '..BBBwwB.';
   HEADS.princeShout[10] = '...BrrB..';
@@ -83,7 +109,7 @@
   HEADS.guardShout[9] = '..SSSrrS.';
   const HEAD_KEYS = {
     H: 'hair', h: 'hair', S: 'skin', s: 'skinD', E: 'eye', B: 'beard', b: 'beardL',
-    r: 'mouth', w: 'teeth', T: 'turban', t: 'turbanD', j: 'jewel',
+    r: 'mouth', w: 'teeth', T: 'turban', t: 'turbanD', j: 'jewel', G: 'glasses', g: 'lens',
   };
 
   // Pose per defecte (dempeus). l* = cama/braç del fons, r* = del davant.
@@ -222,8 +248,9 @@
 
   const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
 
-  // Dibuixa una pose completa al buffer. kind: 'prince' | 'guard'.
-  // extra.scarf = angle de la cua de la bufanda (moviment secundari).
+  // Dibuixa una pose completa al buffer. kind: 'prince' | 'guard' | 'mykola'.
+  // extra.scarf = angle de la cua de la bufanda (moviment secundari),
+  // extra.pot = color de la poció que té a la mà.
   function drawPose(R, p, kind, extra) {
     extra = extra || {};
     const pal = PAL32[kind];
@@ -277,10 +304,10 @@
 
     // cap
     const head = T(s.head);
-    R.bitmap(HEADS[(guard ? 'guard' : 'prince') + (p.face ? 'Shout' : '')], head[0], head[1], pal, O);
+    R.bitmap(HEADS[kind + (p.face ? 'Shout' : '')], head[0], head[1], pal, O);
 
     // bufanda (només l'heroi)
-    if (!guard) {
+    if (kind === 'prince') {
       const nk = T(s.neck);
       R.disc(nk[0], nk[1] + 1, 3.0, O);
       R.disc(nk[0], nk[1] + 1, 2.2, pal.scarf);
@@ -322,7 +349,7 @@
     R.part(armParts(s.fa, false), O);
     if (p.pot) {
       R.disc(hand[0] + 1, hand[1] - 1, 2.2, O);
-      R.disc(hand[0] + 1, hand[1] - 1, 1.3, hex('#d1283a'));
+      R.disc(hand[0] + 1, hand[1] - 1, 1.3, hex(extra.pot || '#d1283a'));
       R.px(Math.round(hand[0] + 1), Math.round(hand[1] - 3), hex('#c9c3b0'));
     }
     return R.flush();

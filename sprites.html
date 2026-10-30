@@ -35,13 +35,14 @@
     cv.width = 56; cv.height = 64;
     div.appendChild(cv);
     const sp = document.createElement('span');
-    sp.textContent = name + (kind === 'guard' ? ' (guarda)' : '');
+    sp.textContent = name + (kind === 'guard' ? ' (guarda)' : kind === 'mykola' ? ' (Mykola)' : '');
     div.appendChild(sp);
     grid.appendChild(div);
     cells.push({ name, kind, ctx: cv.getContext('2d'), anim: Anims.A[name] });
   }
   for (const k in Anims.A) add(k, 'prince');
   for (const k of SWORD) add(k, 'guard');
+  for (const k of SWORD) add(k, 'mykola');
   let t = 0;
   function frame() {
     t++;
