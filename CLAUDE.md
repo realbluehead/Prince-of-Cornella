@@ -54,4 +54,6 @@ Física de caiguda: més de 30 px → aterratge ajupit, més de 80 → perd 1 de
 - Ara hi ha 1 nivell de 3 sales, 1 guarda, 2 pocions, punxes, rajoles fluixes, placa + porta i combat amb espasa.
 - L'heroi està inspirat en una foto de referència: cabell i barba foscos amb pèls grisos, plomífer blau marí i bufanda negra amb ratlles crues.
 - Pendent, segons el nom del repo: ambientar-lo a Cornellà (decorat, textos, enemics) i, possiblement, rebatejar el joc i la carpeta `poc/palau`.
-- No està publicat enlloc (no hi ha GitHub Pages).
+## Publicació
+El joc es publica a GitHub Pages des de la branca **`gh-pages`**, que conté una còpia plana de `poc/palau/`: https://realbluehead.github.io/Prince-of-Cornella/
+Per publicar-lo, primer fes commit a `main` i després copia `poc/palau/.` a l'arrel de `gh-pages` (amb un `git worktree`), fes-hi commit i puja-ho. No facis canvis directament a `gh-pages`: s'han de fer a `main`, perquè si no es perden quan es torna a publicar.
