@@ -56,17 +56,18 @@
     const k = KEYMAP[e.code];
     if (k) { if (!held[k]) pressed[k] = true; held[k] = true; e.preventDefault(); }
     if (e.code === 'Enter' && game.mode === 'title') start();
+    if (e.code === 'Enter' && game.mode === 'dead') respawn();
     if (e.code === 'KeyR') start();
   });
   addEventListener('keyup', (e) => { const k = KEYMAP[e.code]; if (k) held[k] = false; });
   addEventListener('blur', () => { for (const k in held) held[k] = false; });
   document.querySelectorAll('[data-k]').forEach((b) => {
     const k = b.dataset.k;
-    const on = (e) => { e.preventDefault(); Snd.init(); if (!held[k]) pressed[k] = true; held[k] = true; if (game.mode === 'title') start(); };
+    const on = (e) => { e.preventDefault(); Snd.init(); if (!held[k]) pressed[k] = true; held[k] = true; if (game.mode === 'title') start(); else if (game.mode === 'dead') respawn(); };
     const off = (e) => { e.preventDefault(); held[k] = false; };
     b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointerleave', off); b.addEventListener('pointercancel', off);
   });
-  overlay.addEventListener('click', () => { Snd.init(); start(); });
+  overlay.addEventListener('click', () => { Snd.init(); if (game.mode === 'dead') respawn(); else start(); });
 
   // ---- món ----------------------------------------------------------------
   let L, bgs, prince, foes, debris, rubble, parts, tick;
@@ -136,13 +137,33 @@
     prince.chatCool = 60 * 8;
     foes = L.foes.map((f) => {
       const s = FOE_STATS[f.kind], a = new Actor(f.kind, f.c * TW + 16, floorY(f.r), -1);
-      return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shoutCool: 0 });
+      return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shoutCool: 0, home: { x: a.x, y: a.y } });
     });
     debris = []; rubble = []; parts = []; tick = 0;
     Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
     overlay.classList.add('hidden');
     if (window.speechSynthesis) speechSynthesis.cancel();
     say(sala ? 'Sala ' + (sala + 1) + '.' : 'Deu sales, palanques, reixes i guardes... Diego, troba la sortida del palau!');
+  }
+
+  const deathRoom = () => Math.max(0, Math.min(NROOMS - 1, Math.floor(prince.x / ROOMW)));
+
+  // després de morir, en Diego torna a l'entrada de la sala on ha mort, amb la vida
+  // plena. El món es queda com estava: reixes obertes, pocions begudes i enemics vençuts.
+  function respawn() {
+    const room = deathRoom(), [sc, sr] = Level.START[room], maxHp = prince.maxHp;
+    prince = new Actor('prince', sc * TW + 16, floorY(sr), 1);
+    Object.assign(prince, { hp: maxHp, maxHp, chatCool: 60 * 8 });
+    // els enemics que encara viuen tornen al seu lloc, també amb la vida plena
+    for (const f of foes) {
+      if (!f.alive) continue;
+      Object.assign(f, { x: f.home.x, y: f.home.y, face: -1, hp: f.maxHp, sword: false, talk: 0, cool: 60 });
+      f.go('idle', 'idle', 0);
+    }
+    debris = []; parts = [];
+    Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
+    overlay.classList.add('hidden');
+    say('Sala ' + (room + 1) + '. Torna-ho a provar!');
   }
 
   // una palanca o una placa obre la seva reixa (o la porta de sortida)
@@ -849,7 +870,8 @@
     overlay.classList.remove('hidden');
     overlay.querySelector('h1').textContent = kind === 'win' ? 'Has escapat!' : 'Has mort';
     overlay.querySelector('.sub').textContent = kind === 'win' ? 'En Diego ja és fora. La lluna l\'espera.' : 'Les ombres del palau han vençut en Diego.';
-    overlay.querySelector('.go').textContent = 'Prem R o toca per tornar a jugar';
+    overlay.querySelector('.go').textContent = kind === 'win' ? 'Prem R o toca per tornar a jugar'
+      : 'Prem Enter o toca per continuar a la sala ' + (deathRoom() + 1) + ' · R per començar de nou';
   }
 
   // retrat de l'heroi a la pantalla de títol (en guàrdia, amb la bufanda al vent)

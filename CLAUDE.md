@@ -53,6 +53,9 @@ En Mykola crida «My name is Mykola!» quan veu l'heroi, de tant en tant mentre 
 - **Ball:** després de 300 ticks quiet (`idleT`), passa a l'estat `dance` amb l'animació `macarena` o `gangnam`. Qualsevol tecla l'atura. `sing()` toca una tonada pròpia de `SONGS`, i no la melodia ni la lletra de les cançons reals, que tenen drets d'autor.
 - **Sortida:** a la porta passa a l'estat `enter`. Fa `enterTurn` fins a quedar d'esquena (pose `back: 1`, cap `HEADS.princeBack`) i després `walkIn`. `drawActor` el retalla dins del forat de la porta mentre es fa petit i s'esvaeix.
 
+### Morir i continuar
+Quan mor, la pantalla de mort ofereix continuar (Enter o tocar). `respawn()` torna a posar en Diego al `START` de la sala on ha mort (`deathRoom()`), amb la vida plena i la `maxHp` que ja tenia. El món no es reinicia: les reixes obertes, les pocions begudes, les rajoles caigudes i els enemics morts es queden igual. Els enemics vius tornen a la seva posició inicial (`home`) amb la vida plena. R crida `start()` i torna a començar el joc de zero.
+
 ### Estats de l'heroi (`updatePrince`)
 `idle, dance, enter, pull, turn, startRun, run, stop, slide, bump, step, crouch, crouchUp, land, landRun, jumpPrep, jumpUp, grabUp, hang, climb, standJump, runJump, air, fall, drink, drawSword, drawDone, garde, gardeTurn, advance, retreat, strike, block, hurt, dead`.
 Patró: `a.go(estat, animació, ticksDeBarreja)` canvia l'estat i l'animació, `a.at` és el tick dins l'animació i `a.done` indica que s'ha acabat. Els esdeveniments van lligats a ticks concrets (p. ex. el cop es resol a `at === 13`).
