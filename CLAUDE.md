@@ -48,8 +48,13 @@ Els angles són en graus: 0 = cap avall i els positius van cap endavant. Claus: 
 `foes` és una llista d'`Actor` amb `kind` igual a `'guard'` o `'mykola'`. La vida, la probabilitat de parar i la d'atacar de cada tipus són a `FOE_STATS`, i la IA és a `updateFoe(g)`. L'heroi lluita sempre contra l'enemic més proper de la mateixa fila (`foeNear(range)`).
 En Mykola crida «My name is Mykola!» quan veu l'heroi, de tant en tant mentre lluita i quan rep un cop (`shout()`). El crit apareix en una bafarada i, si el navegador té `speechSynthesis`, també es diu en veu alta. Per dibuixar-lo, `drawPose` fa servir el cap `HEADS.mykola`, amb les ulleres de pasta (`G` muntura, `g` vidre).
 
+### En Diego (l'heroi)
+- **Frases:** `diego(text?)` mostra la frase en una bafarada, només per escrit. L'usuari no vol que en Diego parli en veu alta. Sense argument tria una frase a l'atzar de `DIEGO`. Es crida sola cada 18–38 s (`chatCool`) i també en moments concrets: «Suena terrible» per una caiguda forta o el verí, «Es así» quan cau un enemic i «No te falta razón» quan s'obre una reixa. Quan mor, diu una de les frases de `DIEGO_DIES` («Aaahhh, esto es peor que una PR de Miguel»...), i la pantalla de mort espera 150 ticks perquè es pugui llegir. Les bafarades de tots els personatges passen per `talk(a, text, ticks)`. Només en Mykola fa servir la veu sintetitzada (`speak()`).
+- **Ball:** després de 300 ticks quiet (`idleT`), passa a l'estat `dance` amb l'animació `macarena` o `gangnam`. Qualsevol tecla l'atura. `sing()` toca una tonada pròpia de `SONGS`, i no la melodia ni la lletra de les cançons reals, que tenen drets d'autor.
+- **Sortida:** a la porta passa a l'estat `enter`. Fa `enterTurn` fins a quedar d'esquena (pose `back: 1`, cap `HEADS.princeBack`) i després `walkIn`. `drawActor` el retalla dins del forat de la porta mentre es fa petit i s'esvaeix.
+
 ### Estats de l'heroi (`updatePrince`)
-`idle, pull, turn, startRun, run, stop, slide, bump, step, crouch, crouchUp, land, landRun, jumpPrep, jumpUp, grabUp, hang, climb, standJump, runJump, air, fall, drink, drawSword, drawDone, garde, gardeTurn, advance, retreat, strike, block, hurt, win, dead`.
+`idle, dance, enter, pull, turn, startRun, run, stop, slide, bump, step, crouch, crouchUp, land, landRun, jumpPrep, jumpUp, grabUp, hang, climb, standJump, runJump, air, fall, drink, drawSword, drawDone, garde, gardeTurn, advance, retreat, strike, block, hurt, dead`.
 Patró: `a.go(estat, animació, ticksDeBarreja)` canvia l'estat i l'animació, `a.at` és el tick dins l'animació i `a.done` indica que s'ha acabat. Els esdeveniments van lligats a ticks concrets (p. ex. el cop es resol a `at === 13`).
 Física de caiguda: més de 30 px → aterratge ajupit, més de 80 → perd 1 de vida, més de 140 → mort.
 

@@ -15,6 +15,8 @@ Prova de concepte d'un joc de plataformes a l'estil *Prince of Persia*, en HTML5
 
 ## El nivell
 
+L'heroi és en **Diego**. De tant en tant diu «No te falta razón», «Es así» o «Suena terrible» (de vegades segons el que passa: verí, una caiguda, un enemic vençut o una reixa que s'obre). Si s'està quiet 5 segons, es posa a ballar la Macarena o el Gangnam Style tot cantant una tonada pròpia. Quan arriba a la porta de sortida, s'hi gira d'esquena i hi entra caminant.
+
 Deu sales amb tres guardes i, a l'última, en **Mykola**: porta ulleres negres de pasta i va cridant «My name is Mykola!» (si el navegador pot, també ho diu en veu alta).
 
 | Poció | Color | Efecte |
