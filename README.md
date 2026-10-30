@@ -26,6 +26,8 @@ Deu sales amb tres guardes i, a l'última, en **Mykola**: porta ulleres negres d
 | Verí | verda | treu un punt de vida |
 | Ploma | groga | durant 30 s caus a poc a poc i cap caiguda fa mal |
 
+Si en Diego mor, continua des de l'entrada de la sala on ha mort, amb la vida plena. Les reixes que ja ha obert, les pocions que ja s'ha begut i els enemics que ja ha vençut es queden com estaven. Amb R es torna a començar el joc des del principi.
+
 Cada palanca o placa obre una reixa. Algunes reixes són a la mateixa sala i d'altres més endavant.
 
 ## Controls
@@ -40,4 +42,5 @@ Cada palanca o placa obre una reixa. Algunes reixes són a la mateixa sala i d'a
 | Maj (mantenir en caure) | agafar-se a una vora |
 | Maj / Espai | beure poció, estirar una palanca, atacar amb l'espasa |
 | ↑ (en combat) | parar el cop |
-| R | reiniciar |
+| Enter (després de morir) | continuar a la mateixa sala |
+| R | tornar a començar des del principi |
