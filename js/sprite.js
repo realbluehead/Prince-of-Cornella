@@ -99,6 +99,20 @@
       '...SSSS..',
     ],
   };
+  // l'heroi d'esquena (quan entra per la porta): només cabell, orelles i clatell
+  HEADS.princeBack = [
+    '..HHHHH..',
+    '.HHHHHHH.',
+    'HHHHHHHHH',
+    'HHHHHHHHH',
+    'HHHHHHHHH',
+    'HHHHHHHHH',
+    'sHHHHHHHs',
+    '.HHHHHHH.',
+    '.HHHHHHH.',
+    '..HHHHH..',
+    '...sss...',
+  ];
   HEADS.mykolaShout = HEADS.mykola.slice();
   HEADS.mykolaShout[9] = '..SSrrrS.';
   HEADS.mykolaShout[10] = '...SrrS..';
@@ -117,7 +131,7 @@
     hx: 0, hy: -24, g: 1, t: 0, hd: 0,
     lh: 0, lk: 0, la: 0, rh: 0, rk: 0, ra: 0,
     ls: -6, le: 12, rs: 6, re: 14,
-    sw: null, face: 0, pot: 0,
+    sw: null, face: 0, pot: 0, back: 0,
   };
 
   function skeleton(p) {
@@ -304,9 +318,10 @@
 
     // cap
     const head = T(s.head);
-    R.bitmap(HEADS[kind + (p.face ? 'Shout' : '')], head[0], head[1], pal, O);
+    const back = p.back > 0.5;
+    R.bitmap(HEADS[kind + (back ? 'Back' : p.face ? 'Shout' : '')] || HEADS[kind], head[0], head[1], pal, O);
 
-    // bufanda (només l'heroi)
+    // bufanda (només l'heroi; d'esquena no se li veu la cua)
     if (kind === 'prince') {
       const nk = T(s.neck);
       R.disc(nk[0], nk[1] + 1, 3.0, O);
@@ -314,13 +329,15 @@
       R.px(Math.round(nk[0] + 2), Math.round(nk[1] + 1), pal.stripe);
       R.px(Math.round(nk[0] + 1), Math.round(nk[1] + 2), pal.stripe);
       R.px(Math.round(nk[0] - 1), Math.round(nk[1] + 3), pal.stripe2);
-      const ta = extra.scarf == null ? 8 : extra.scarf;
-      const t0 = add(nk, s.fwd, 1.3);
-      const td = dirv(ta + p.t * 0.5);
-      const t1 = [t0[0] + td[0] * 6.5, t0[1] + 2 + td[1] * 6.5];
-      R.part([[[t0[0], t0[1] + 2], t1, 1.2, 1.0, pal.scarf]], O);
-      for (const f of [0.7, 0.9]) {
-        R.px(Math.round(t0[0] + (t1[0] - t0[0]) * f), Math.round(t0[1] + 2 + (t1[1] - t0[1] - 2) * f), pal.stripe);
+      if (!back) {
+        const ta = extra.scarf == null ? 8 : extra.scarf;
+        const t0 = add(nk, s.fwd, 1.3);
+        const td = dirv(ta + p.t * 0.5);
+        const t1 = [t0[0] + td[0] * 6.5, t0[1] + 2 + td[1] * 6.5];
+        R.part([[[t0[0], t0[1] + 2], t1, 1.2, 1.0, pal.scarf]], O);
+        for (const f of [0.7, 0.9]) {
+          R.px(Math.round(t0[0] + (t1[0] - t0[0]) * f), Math.round(t0[1] + 2 + (t1[1] - t0[1] - 2) * f), pal.stripe);
+        }
       }
     }
 

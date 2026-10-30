@@ -36,6 +36,39 @@
   const C3 = at({ t: 30, hd: -10, rh: 75, rk: 100, lh: 15, lk: 110, la: -20, rs: 25, re: 30, ls: 20, le: 35 }, 8);
   const C4 = at({ rh: 4, rk: 3, lh: -3, lk: 2 }, 10);
 
+  // ---- balls (quan en Diego s'avorreix) -------------------------------------
+  // pose a terra aixecada 'dy' píxels (per als saltironets)
+  const hop = (p, dy) => { const r = P(p); r.hy -= dy; return r; };
+  const mac = (o) => P(Object.assign({ rh: 4, rk: 3, lh: -3, lk: 2 }, o));
+  const HIPS = { rs: 15, re: 45, ls: 15, le: 45 };
+  const MACARENA = [
+    [mac({ rs: 90, re: 0 }), 14],
+    [mac({ rs: 90, re: 0, ls: 90, le: 0 }), 14],
+    [mac({ rs: 75, re: 105, ls: 90, le: 0 }), 14],
+    [mac({ rs: 75, re: 105, ls: 75, le: 105 }), 14],
+    [mac({ rs: 155, re: 110, ls: 75, le: 105, hd: -8 }), 14],
+    [mac({ rs: 155, re: 110, ls: 155, le: 110, hd: -8 }), 14],
+    [mac({ rs: 15, re: 45, ls: 155, le: 110 }), 14],
+    [mac(HIPS), 10],
+    [mac(Object.assign({ t: 6, hx: 2 }, HIPS)), 10],
+    [mac(Object.assign({ t: -6, hx: -2 }, HIPS)), 10],
+    [mac(Object.assign({ t: 6, hx: 2 }, HIPS)), 10],
+    [hop(Object.assign({ rh: 20, rk: 40, lh: 10, lk: 40 }, HIPS), 5), 8],
+    [STAND, 1],
+  ];
+  // Gangnam: el pas del cavall (regnes) i després el llaç amb el braç amunt
+  const REINS = { t: 8, rs: 70, re: 55, ls: 62, le: 60 };
+  const G1 = P(Object.assign({}, REINS, { rh: 40, rk: 55, ra: -10, lh: -12, lk: 30 }));
+  const G2 = hop(Object.assign({}, REINS, { rh: 12, rk: 30, lh: -30, lk: 55 }), 3);
+  const L1 = P(Object.assign({}, REINS, { rh: 40, rk: 55, ra: -10, lh: -12, lk: 30, rs: 165, re: 25 }));
+  const L2 = hop(Object.assign({}, REINS, { rh: 12, rk: 30, lh: -30, lk: 55, rs: 170, re: -30 }), 3);
+  const GANGNAM = [];
+  for (let i = 0; i < 4; i++) GANGNAM.push([G1, 8], [G2, 8]);
+  for (let i = 0; i < 4; i++) GANGNAM.push([L1, 8], [L2, 8]);
+
+  // ---- entrar per la porta: es gira d'esquena i camina cap a dins -------------
+  const BACK = P({ back: 1, rh: 2, rk: 2, lh: -2, lk: 2, rs: 4, re: 8, ls: -4, le: 8 });
+
   function reverse(frames) {
     const n = frames.length;
     return frames.map((f, i) => [frames[n - 1 - i][0], i < n - 1 ? frames[n - 2 - i][1] : 1]);
@@ -128,6 +161,16 @@
         [P({ t: 3, rs: 130, re: 20, ls: 40, le: 30 }), 10],
         [P({ t: 10, rh: 18, rk: 30, lh: -6, lk: 22, rs: 65, re: 40, ls: 20, le: 30 }), 10],
         [STAND, 1],
+      ],
+    },
+    macarena: { frames: MACARENA },
+    gangnam: { frames: GANGNAM },
+    enterTurn: { frames: [[STAND, 6], [P({ t: 2, rh: 8, rk: 10, lh: -6, lk: 8, rs: 10, re: 20, ls: -10, le: 20 }), 6], [BACK, 1]] },
+    walkIn: {
+      loop: true,
+      frames: [
+        [P({ back: 1, rh: 22, rk: 45, lh: -2, lk: 4, rs: -12, re: 10, ls: 12, le: 10 }), 12],
+        [P({ back: 1, lh: 22, lk: 45, rh: -2, rk: 4, ls: -12, le: 10, rs: 12, re: 10 }), 12],
       ],
     },
     victory: {

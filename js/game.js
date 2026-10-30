@@ -84,7 +84,7 @@
 
   class Actor {
     constructor(kind, x, y, face) {
-      Object.assign(this, { kind, x, y, face, vx: 0, vy: 0, hp: 3, maxHp: 3, scarf: 8, lastX: x, flash: 0 });
+      Object.assign(this, { kind, x, y, face, vx: 0, vy: 0, hp: 3, maxHp: 3, scarf: 8, lastX: x, flash: 0, talk: 0, idleT: 0 });
       this.setAnim('idle', 0);
       this.state = 'idle';
     }
@@ -133,15 +133,16 @@
     for (const t of L.triggers) if (t.c < sala * 10) activate(t, true);
     const [sc, sr] = Level.START[sala];
     prince = new Actor('prince', sc * TW + 16, floorY(sr), 1);
+    prince.chatCool = 60 * 8;
     foes = L.foes.map((f) => {
       const s = FOE_STATS[f.kind], a = new Actor(f.kind, f.c * TW + 16, floorY(f.r), -1);
-      return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shout: 0, shoutCool: 0 });
+      return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shoutCool: 0 });
     });
     debris = []; rubble = []; parts = []; tick = 0;
     Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
     overlay.classList.add('hidden');
     if (window.speechSynthesis) speechSynthesis.cancel();
-    say(sala ? 'Sala ' + (sala + 1) + '.' : 'Deu sales, palanques, reixes i guardes... troba la sortida del palau!');
+    say(sala ? 'Sala ' + (sala + 1) + '.' : 'Deu sales, palanques, reixes i guardes... Diego, troba la sortida del palau!');
   }
 
   // una palanca o una placa obre la seva reixa (o la porta de sortida)
@@ -156,19 +157,45 @@
     if (g.ch === 'D') say('S\'ha sentit un cruixit llunyà... la porta del palau s\'obre!');
     else if (Math.floor(g.c / 10) === Math.floor(prince.x / ROOMW)) say('La reixa s\'aixeca!');
     else say('S\'ha sentit una reixa que s\'aixecava, lluny d\'aquí...');
+    diego('No te falta razón');
   }
 
-  // en Mykola es presenta cridant (i, si el navegador en sap, ho diu en veu alta)
-  function shout(g) {
-    g.shout = 140; g.shoutCool = 360;
-    say('Mykola: «My name is Mykola!»');
+  // ---- parlar: bafarada sobre el cap i, si el navegador en sap, veu sintetitzada ----
+  function talk(a, text, ticks) { a.talk = ticks; a.talkText = text; }
+  function speak(text, lang, pitch, rate) {
     if (!Snd.ac || !window.speechSynthesis) return;
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance('My name is Mykola!');
-      u.lang = 'en-US'; u.pitch = 0.6; u.rate = 1.1;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = lang; u.pitch = pitch; u.rate = rate;
       speechSynthesis.speak(u);
     } catch (e) { /* sense veu */ }
+  }
+
+  // en Mykola es presenta cridant
+  function shout(g) {
+    g.shoutCool = 360;
+    say('Mykola: «My name is Mykola!»');
+    talk(g, 'MY NAME IS MYKOLA!', 140); speak('My name is Mykola!', 'en-US', 0.6, 1.1);
+  }
+
+  // en Diego (l'heroi) diu una de les seves frases (o la que toqui pel context);
+  // només per escrit, a la bafarada
+  const DIEGO = ['No te falta razón', 'Es así', 'Suena terrible'];
+  const DIEGO_DIES = ['Aaahhh, esto es peor que una PR de Miguel', 'Aaahhh, esto es peor que un merge en viernes', 'Aaahhh, esto es peor que una reunión sin agenda'];
+  const pick = (l) => l[Math.floor(Math.random() * l.length)];
+  function diego(text) {
+    talk(prince, text || pick(DIEGO), 150);
+    prince.chatCool = 60 * (18 + Math.random() * 20);
+  }
+
+  // mentre balla, en Diego canta una tonada pròpia, nota a nota
+  const SONGS = { macarena: [392, 440, 494, 440, 392, 330, 392, 0], gangnam: [220, 220, 262, 220, 294, 262, 220, 0] };
+  function sing(a) {
+    if (a.at % 15) return;
+    const song = SONGS[a.dance], beat = (a.beat = (a.beat || 0) + 1), f = song[beat % song.length];
+    if (f) Snd.tone(f, f, 0.16, 'triangle', 0.045);
+    talk(a, beat % 16 < 8 ? '♪ la la la ♪' : '♪ na na na ♪', 20);
   }
 
   // ---- partícules -------------------------------------------------------------
@@ -216,14 +243,17 @@
     if (how === 'spikes') { a.go('dead', 'spiked', 0); burst(a.x, a.y - 8, 20, '#b0182a', 2); Snd.play('spikes'); }
     else if (how === 'fallout') a.state = 'dead';
     else { a.go('dead', 'death', 6); burst(a.x, a.y - 20, 16, '#b0182a', 2); }
-    if (a === prince) { Snd.play('death'); game.timer = 0; }
+    if (a === prince) { Snd.play('death'); game.timer = 0; diego(pick(DIEGO_DIES)); }
   }
 
   function damage(a, from) {
     a.hp--; a.flash = 20;
     burst(a.x, a.y - 24, 10, '#c21d2f', 1.8);
     Snd.play('hit');
-    if (a.hp <= 0) { kill(a); if (a !== prince) say(a.kind === 'mykola' ? 'En Mykola ha caigut. «My name... was... Mykola...»' : 'El guarda ha caigut!'); }
+    if (a.hp <= 0) {
+      kill(a);
+      if (a !== prince) { say(a.kind === 'mykola' ? 'En Mykola ha caigut. «My name... was... Mykola...»' : 'El guarda ha caigut!'); diego('Es así'); }
+    }
     else {
       if (a.kind === 'mykola' && a.shoutCool < 200) shout(a);
       a.sword = true; a.go('hurt', 'hurt', 2);
@@ -239,7 +269,7 @@
     if (t.ch === 'L' && !t.shake) t.shake = 1;
     if (t.ch === 'S') { t.ext = 4; return kill(a, 'spikes'); }
     if (dist > 140) { Snd.play('slam'); return kill(a); }
-    if (dist > 80) { Snd.play('slam'); a.hp--; a.flash = 20; if (a.hp <= 0) return kill(a); say('Ai! Aquesta caiguda ha fet mal.'); return a.go('land', 'landHard', 2); }
+    if (dist > 80) { Snd.play('slam'); a.hp--; a.flash = 20; if (a.hp <= 0) return kill(a); say('Ai! Aquesta caiguda ha fet mal.'); diego('Suena terrible'); return a.go('land', 'landHard', 2); }
     Snd.play('land');
     if (dist > 30) return a.go('land', 'landCrouch', 2);
     if (a.jumpKind === 'run' && held[a.face > 0 ? 'right' : 'left']) return a.go('landRun', 'landRun', 2);
@@ -291,7 +321,7 @@
     else if (P.type === 'ploma') { a.feather = 60 * 30; say('Et sents lleuger com una ploma... una estona, les caigudes no et faran mal.'); }
     else {
       a.hp--; a.flash = 20; Snd.play('hit');
-      if (a.hp <= 0) { kill(a); say('Era verí...'); } else say('Puaj! Era verí. Compte amb les pocions verdes.');
+      if (a.hp <= 0) { kill(a); say('Era verí...'); } else { say('Puaj! Era verí. Compte amb les pocions verdes.'); diego('Suena terrible'); }
     }
   }
 
@@ -305,8 +335,10 @@
     };
     const checkSpikes = () => { const t = tile(colOf(a.x), a.row); if (t.ch === 'S' && t.ext >= 2) kill(a, 'spikes'); };
     if (a.feather > 0) a.feather--;
+    if (a.talk > 0) a.talk--;
+    if (--a.chatCool <= 0 && ['idle', 'run', 'startRun', 'stop', 'garde', 'crouch'].includes(a.state)) diego();
     if (pressed.act && a.sword) a.queued = true;
-    const combatReady = ['idle', 'run', 'startRun', 'stop', 'land', 'turn'].includes(a.state);
+    const combatReady = ['idle', 'dance', 'run', 'startRun', 'stop', 'land', 'turn'].includes(a.state);
     const foe = foeNear(110);
     if (combatReady && foe && a.grounded()) {
       a.face = sign(foe.x - a.x); a.sword = true; a.vx = 0;
@@ -317,9 +349,12 @@
         a.vx = 0;
         if (!ground()) return;
         const dc = colOf(a.x), here = tile(dc, a.row);
-        if (held.up && here.ch === 'D' && here.open >= 1) {
-          a.x = dc * TW + 16; a.go('win', 'victory'); Snd.play('win'); say('Llibertat! Has escapat del Palau de la Lluna.');
-          return;
+        if (held.up && here.ch === 'D' && here.open >= 1) return a.go('enter', 'enterTurn', 4);
+        // si s'està quiet una estona, es posa a ballar
+        if (d || held.up || held.down || held.act) a.idleT = 0;
+        else if (++a.idleT > 300) {
+          a.idleT = 0; a.beat = 0; a.dance = Math.random() < 0.5 ? 'macarena' : 'gangnam';
+          return a.go('dance', a.dance, 8);
         }
         if (d && back) { a.go('turn'); a.flipped = false; return; }
         if (held.up) {
@@ -359,6 +394,20 @@
         if (a.at === 16) { Snd.play('lever'); activate(a.lever); }
         if (a.done) a.go('idle', 'idle', 4);
         break;
+      case 'dance':
+        if (!ground()) return;
+        if (d || held.up || held.down || held.act) { a.talk = 0; return a.go('idle', 'idle', 6); }
+        // la Macarena acaba amb un saltet i un gir
+        if (a.done) { if (a.dance === 'macarena') a.face = -a.face; a.setAnim(a.dance, 0); }
+        sing(a);
+        break;
+      case 'enter': {
+        // es posa al mig de la porta, es gira d'esquena i hi entra caminant
+        a.x += Math.max(-0.7, Math.min(0.7, colOf(a.x) * TW + 16 - a.x));
+        if (a.anim === A.enterTurn && a.done) { a.setAnim('walkIn', 0); Snd.play('win'); say('Llibertat! En Diego ha escapat del Palau de la Lluna.'); }
+        if (a.anim === A.walkIn && a.at > 80) { game.fade += 0.02; if (game.fade >= 1) { game.mode = 'win'; showOverlay('win'); } }
+        break;
+      }
       case 'turn':
         if (a.at === 6) a.face = -a.face;
         if (a.done) { if (dirHeld() === a.face) a.go('startRun', 'startRun', 2); else a.go('idle', 'idle', 4); }
@@ -533,12 +582,10 @@
         if (a.at < 10) a.move(-a.face * 0.6);
         if (a.done) a.go('garde', 'garde', 0);
         break;
-      case 'win':
-        if (a.done) { game.fade += 0.02; if (game.fade >= 1) { game.mode = 'win'; showOverlay('win'); } }
-        break;
       case 'dead':
         game.timer++;
-        if (game.timer === 80) { showOverlay('dead'); game.mode = 'dead'; }
+        // temps per llegir la darrera frase d'en Diego
+        if (game.timer === 150) { showOverlay('dead'); game.mode = 'dead'; }
         break;
     }
   }
@@ -559,7 +606,7 @@
   function updateFoe(g) {
     const p = prince, st = g.stats;
     g.at++;
-    if (g.shout > 0) g.shout--;
+    if (g.talk > 0) g.talk--;
     if (g.shoutCool > 0) g.shoutCool--;
     const dx = p.x - g.x, ad = Math.abs(dx);
     const engaged = p.alive && p.row === g.row && ad < 120;
@@ -612,7 +659,7 @@
   // ---- trampes i objectes -------------------------------------------------------
   function updateWorld() {
     const p = prince;
-    const pg = p.alive && ['idle', 'run', 'startRun', 'stop', 'step', 'land', 'landRun', 'crouch', 'turn', 'garde', 'advance', 'retreat', 'strike', 'block'].includes(p.state);
+    const pg = p.alive && ['idle', 'dance', 'run', 'startRun', 'stop', 'step', 'land', 'landRun', 'crouch', 'turn', 'garde', 'advance', 'retreat', 'strike', 'block'].includes(p.state);
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const t = L.tiles[r][c];
@@ -665,11 +712,19 @@
     if (a.state === 'dead' && a.y > GAMEH + 40) return;
     let pose = a.computePose();
     if (a.flash > 0 && (a.flash-- >> 2) % 2) return;
-    if (a.shout > 0 && (tick >> 3) % 2) pose = Object.assign({}, pose, { face: 1 });
+    if (a.talk > 0 && (tick >> 3) % 2) pose = Object.assign({}, pose, { face: 1 });
     const img = Sprite.drawPose(R, pose, a.kind, { scarf: a.scarf, pot: a.potion && POTIONS[a.potion.ch].color });
     ctx.save();
+    // entrant per la porta: es fa petit, puja l'escala i s'esvaeix dins del forat
+    let s = 1;
+    if (a.state === 'enter' && a.anim === A.walkIn) {
+      const k = Math.min(1, a.at / 90), x0 = colOf(a.x) * TW - camX;
+      ctx.beginPath(); ctx.rect(x0 + 3, a.y - 60, 26, 62); ctx.clip();
+      ctx.globalAlpha = 1 - 0.7 * k; s = 1 - 0.35 * k;
+      ctx.translate(0, -12 * k);
+    }
     ctx.translate(Math.round(a.x - camX), Math.round(a.y));
-    ctx.scale(a.face, 1);
+    ctx.scale(a.face * s, s);
     ctx.drawImage(img, -Sprite.OX, -Sprite.OY);
     ctx.restore();
   }
@@ -682,12 +737,13 @@
     if ((tick + x) % 9 < 2) { ctx.fillStyle = '#ffb040'; ctx.fillRect(x + Math.round(f), y - 13, 1, 1); }
   }
 
-  // bafarada amb el crit d'en Mykola
+  // bafarada amb el que diu un personatge
   function drawBubble(a, camX) {
-    const text = 'MY NAME IS MYKOLA!';
+    const text = a.talkText;
     ctx.font = '7px monospace'; ctx.textAlign = 'center';
     const w = Math.ceil(ctx.measureText(text).width) + 8, h = 11;
-    const hx = Math.round(a.x - camX), top = Math.max(1, Math.round(a.y) - 60);
+    // si cau a l'abisme, la bafarada es queda a baix de tot de la pantalla
+    const hx = Math.round(a.x - camX), top = Math.max(1, Math.min(GAMEH - 16, Math.round(a.y) - 60));
     const bx = Math.max(1, Math.min(W - w - 1, hx - (w >> 1)));
     ctx.fillStyle = '#0a0c14'; ctx.fillRect(bx - 1, top - 1, w + 2, h + 2);
     ctx.fillStyle = '#f4efe2'; ctx.fillRect(bx, top, w, h);
@@ -754,7 +810,8 @@
       ctx.fillStyle = '#3e3c5a'; ctx.fillRect(x0, d.y, TW, 6);
     }
     for (const q of parts) { ctx.fillStyle = q.color; ctx.fillRect(Math.round(q.x - camX), Math.round(q.y), 1, 1); }
-    for (const f of foes) if (f.shout > 0 && f.alive && inRoom(f)) drawBubble(f, camX);
+    for (const f of foes) if (f.talk > 0 && f.alive && inRoom(f)) drawBubble(f, camX);
+    if (prince.talk > 0) drawBubble(prince, camX);
     // llum càlida de les torxes
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -791,7 +848,7 @@
   function showOverlay(kind) {
     overlay.classList.remove('hidden');
     overlay.querySelector('h1').textContent = kind === 'win' ? 'Has escapat!' : 'Has mort';
-    overlay.querySelector('.sub').textContent = kind === 'win' ? 'La lluna t\'espera a fora del palau.' : 'Les ombres del palau t\'han vençut.';
+    overlay.querySelector('.sub').textContent = kind === 'win' ? 'En Diego ja és fora. La lluna l\'espera.' : 'Les ombres del palau han vençut en Diego.';
     overlay.querySelector('.go').textContent = 'Prem R o toca per tornar a jugar';
   }
 
