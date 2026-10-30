@@ -13,7 +13,9 @@ La resta del repo (Nx 15 + Angular 14, del 2022) és un projecte antic que no t�
 
 - Obre `poc/palau/index.html` directament (funciona amb `file://`), o arrenca un servidor estàtic a http://localhost:8123: és `palau` a `.claude/launch.json` del repo, o `prince-of-cornella` al `launch.json` de `~/workspace/claude`.
 - `sprites.html` és una galeria amb totes les animacions de l'heroi i del guarda. Serveix per revisar poses sense haver de jugar.
-- No hi ha tests. Per comprovar un canvi, obre'l al navegador i juga. `window.__game` exposa `prince`, `guard`, `game`, `held` i `pressed`, de manera que des de la consola pots llegir l'estat o simular tecles (`__game.held.right = true`).
+- No hi ha tests. Per comprovar un canvi, obre'l al navegador i juga.
+- `index.html?sala=N` comença a la sala N, amb les reixes de les sales anteriors ja obertes.
+- `window.__game` exposa `prince`, `foes`, `L` (el nivell), `game`, `held`, `pressed` i `start`. També té `step(n)`, que avança n ticks i redibuixa. Funciona fins i tot amb la pestanya amagada (quan `requestAnimationFrame` està aturat), i així pots fer proves deterministes de recorregut, per exemple: `__game.held.right = true; __game.step(60)`.
 
 ## Arquitectura (`poc/palau/js/`)
 
@@ -21,7 +23,7 @@ Són quatre scripts clàssics (IIFE, sense mòduls) que es carreguen en aquest o
 
 | Fitxer | Què hi ha |
 |---|---|
-| `sprite.js` | Esquelet procedural (malucs, genolls, turmells, espatlles, colzes, cap, espasa) rasteritzat píxel a píxel en un buffer de 112×128 amb contorn. Els caps són mapes de bits de caràcters (`HEADS`). Les paletes `prince` i `guard` són a `PALETTES`. |
+| `sprite.js` | Esquelet procedural (malucs, genolls, turmells, espatlles, colzes, cap, espasa) rasteritzat píxel a píxel en un buffer de 112×128 amb contorn. Els caps són mapes de bits de caràcters (`HEADS`). Les paletes `prince`, `guard` i `mykola` són a `PALETTES`. |
 | `anims.js` | Més de 40 animacions per fotogrames clau: `{ frames: [[pose, ticks], …], loop? }`, i el motor interpola entre poses. `poseAt(anim, t)`. |
 | `level.js` | El mapa com a cadenes de caràcters (`MAP`) i el decorat procedural de cada sala, pre-renderitzat amb un RNG amb llavor. També dibuixa les rajoles dinàmiques (blocs, terra, punxes). |
 | `game.js` | So amb WebAudio sintetitzat, entrada (teclat + botons tàctils), classe `Actor`, màquina d'estats de l'heroi, IA del guarda, trampes, dibuix, HUD i bucle de pas fix a 60 Hz. |
@@ -33,14 +35,21 @@ Són quatre scripts clàssics (IIFE, sense mòduls) que es carreguen en aquest o
 - `actor.x` és el centre dels peus i `actor.y` el terra. `face` val 1 (dreta) o -1 (esquerra); el sprite sempre es dibuixa mirant a la dreta i s'emmiralla.
 
 ### Llegenda del mapa (`level.js`)
-`' '` buit · `_` terra · `#` bloc de pedra · `T` torxa · `O` finestra · `I` columna · `S` punxes · `L` rajola fluixa · `P` poció · `B` placa de pressió (obre la porta) · `D` porta de sortida · `K` posició del guarda.
-Cada fila de `MAP` és la concatenació de les sales, 10 caràcters per sala. Si n'afegeixes una, `COLS` es recalcula sol, però hi ha valors fixos que també cal tocar: `[0, 1, 2]` a `start()`, `Math.min(2, …)` a `render()` i les llunes de `renderRoom`.
+El nivell es defineix a `ROOMS`: una entrada per sala amb les seves 3 files de 10 caràcters. `MAP` s'hi construeix a partir d'aquesta llista, i `NROOMS` i `COLS` es calculen sols.
+`' '` buit · `_` terra · `#` bloc de pedra · `T` torxa · `O` finestra · `I` columna · `S` punxes · `L` rajola fluixa · `B` placa de pressió · `V` palanca · `G` reixa · `D` porta de sortida · pocions `P` vida, `Q` vida màxima, `X` verí, `F` ploma · enemics `K` guarda, `M` en Mykola.
+**Activadors i objectius:** les palanques i plaques (`V`, `B`) s'aparellen per ordre d'esquerra a dreta amb les reixes i portes (`G`, `D`). La primera activadora obre el primer objectiu, i així successivament. Si el nombre no quadra, surt un avís a la consola. Si afegeixes o treus una palanca, comprova que l'ordre segueix sent el que vols.
+`START` diu on apareix l'heroi a cada sala, que és el que fa servir `?sala=N`.
+Cada tipus de poció es configura a `POTIONS` (color i efecte). L'efecte s'aplica a `drinkEffect()` de `game.js`.
 
 ### Poses (`sprite.js`)
 Els angles són en graus: 0 = cap avall i els positius van cap endavant. Claus: `t` tors, `hd` cap, `rh/rk/ra` maluc/genoll/turmell de la cama del davant, `lh/lk/la` els de la cama del fons, `rs/re` i `ls/le` espatlla i colze dels braços, `sw` angle de l'espasa (`null` = sense espasa), `face` boca oberta, `pot` poció a la mà, `hx/hy` desplaçament del maluc. `g: 1` (per defecte, via `resolve`) calcula `hy` perquè el peu més baix toqui a terra; `g: 0` vol dir pose a l'aire o ancorada a una vora.
 
+### Enemics
+`foes` és una llista d'`Actor` amb `kind` igual a `'guard'` o `'mykola'`. La vida, la probabilitat de parar i la d'atacar de cada tipus són a `FOE_STATS`, i la IA és a `updateFoe(g)`. L'heroi lluita sempre contra l'enemic més proper de la mateixa fila (`foeNear(range)`).
+En Mykola crida «My name is Mykola!» quan veu l'heroi, de tant en tant mentre lluita i quan rep un cop (`shout()`). El crit apareix en una bafarada i, si el navegador té `speechSynthesis`, també es diu en veu alta. Per dibuixar-lo, `drawPose` fa servir el cap `HEADS.mykola`, amb les ulleres de pasta (`G` muntura, `g` vidre).
+
 ### Estats de l'heroi (`updatePrince`)
-`idle, turn, startRun, run, stop, slide, bump, step, crouch, crouchUp, land, landRun, jumpPrep, jumpUp, grabUp, hang, climb, standJump, runJump, air, fall, drink, drawSword, drawDone, garde, gardeTurn, advance, retreat, strike, block, hurt, win, dead`.
+`idle, pull, turn, startRun, run, stop, slide, bump, step, crouch, crouchUp, land, landRun, jumpPrep, jumpUp, grabUp, hang, climb, standJump, runJump, air, fall, drink, drawSword, drawDone, garde, gardeTurn, advance, retreat, strike, block, hurt, win, dead`.
 Patró: `a.go(estat, animació, ticksDeBarreja)` canvia l'estat i l'animació, `a.at` és el tick dins l'animació i `a.done` indica que s'ha acabat. Els esdeveniments van lligats a ticks concrets (p. ex. el cop es resol a `at === 13`).
 Física de caiguda: més de 30 px → aterratge ajupit, més de 80 → perd 1 de vida, més de 140 → mort.
 
@@ -51,7 +60,8 @@ Física de caiguda: més de 30 px → aterratge ajupit, més de 80 → perd 1 de
 - Si canvies controls o mecàniques, actualitza també `poc/palau/README.md` i la pantalla de títol d'`index.html`.
 
 ## Estat i idees obertes
-- Ara hi ha 1 nivell de 3 sales, 1 guarda, 2 pocions, punxes, rajoles fluixes, placa + porta i combat amb espasa.
+- Ara hi ha 1 nivell de 10 sales, amb 3 guardes, en Mykola, 4 tipus de poció, 4 palanques, 2 plaques, 5 reixes, punxes, rajoles fluixes i la porta de sortida.
+- Saltar dues rajoles de punxes demana prémer ↑ corrent dins dels ~18 px d'abans de les punxes, i és igual de difícil que a la sala 2 original. Sempre es pot passar amb pas amb compte (Maj + →).
 - L'heroi està inspirat en una foto de referència: cabell i barba foscos amb pèls grisos, plomífer blau marí i bufanda negra amb ratlles crues.
 - Pendent, segons el nom del repo: ambientar-lo a Cornellà (decorat, textos, enemics) i, possiblement, rebatejar el joc i la carpeta `poc/palau`.
 ## Publicació

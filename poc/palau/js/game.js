@@ -1,7 +1,7 @@
 // game.js — motor del joc: entrada, física per estats, combat i dibuix.
 (function () {
   'use strict';
-  const { TW, RH, ROWS, COLS, ROOMW, GAMEH, floorY } = Level;
+  const { TW, RH, ROWS, COLS, NROOMS, ROOMW, GAMEH, POTIONS, floorY } = Level;
   const A = Anims.A;
   const W = 320, H = 204;
 
@@ -40,6 +40,7 @@
         case 'swish': this.noise(0.12, 0.12, 2500); break;
         case 'gulp': this.tone(300, 600, 0.15, 'sine', 0.1); setTimeout(() => this.tone(350, 700, 0.15, 'sine', 0.1), 180); break;
         case 'door': this.noise(1.2, 0.15, 200); break;
+        case 'lever': this.tone(260, 120, 0.12, 'square', 0.06); this.noise(0.1, 0.2, 700); break;
         case 'spikes': this.tone(900, 300, 0.1, 'square', 0.05); break;
         case 'death': this.tone(400, 60, 1.2, 'triangle', 0.15); break;
         case 'win': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.tone(f, f, 0.25, 'triangle', 0.1), i * 140)); break;
@@ -68,8 +69,10 @@
   overlay.addEventListener('click', () => { Snd.init(); start(); });
 
   // ---- món ----------------------------------------------------------------
-  let L, bgs, prince, guard, debris, rubble, parts, tick;
-  const game = { mode: 'title', fade: 0, door: 0, doorTarget: 0, timer: 0 };
+  let L, bgs, prince, foes, debris, rubble, parts, tick;
+  const game = { mode: 'title', fade: 0, timer: 0 };
+  // cada tipus d'enemic: vida, probabilitat de parar un cop i d'atacar per tick
+  const FOE_STATS = { guard: { hp: 3, block: 0.45, aggro: 0.05 }, mykola: { hp: 4, block: 0.55, aggro: 0.07 } };
 
   const tile = (c, r) => (c < 0 || c >= COLS || r < 0 ? { ch: '#' } : r >= ROWS ? { ch: ' ' } : L.tiles[r][c]);
   const isFloor = (c, r) => tile(c, r).ch !== ' ';
@@ -101,14 +104,19 @@
     get row() { return rowOf(this.y); }
     get alive() { return this.hp > 0; }
     grounded() { return isFloor(colOf(this.x), this.row); }
-    // moviment horitzontal amb col·lisió contra blocs de pedra
+    // moviment horitzontal amb col·lisió contra blocs de pedra i reixes tancades
     move(dx) {
       if (!dx) return true;
-      const nx = this.x + dx, probe = nx + sign(dx) * 5;
+      const nx = this.x + dx, probe = nx + sign(dx) * 5, lead = this.x + sign(dx) * 5;
       const rows = this.state === 'air' || this.state === 'fall' ? [rowOf(this.y - 2), Math.floor((this.y - 30) / RH)] : [this.row];
       for (const r of rows) {
         if (isWall(colOf(probe), r)) {
           this.x = dx > 0 ? colOf(probe) * TW - 5.01 : (colOf(probe) + 1) * TW + 5.01;
+          return false;
+        }
+        const t = tile(colOf(probe), r), gx = colOf(probe) * TW + 16;
+        if (t.ch === 'G' && t.open < 0.85 && (dx > 0 ? lead <= gx && probe > gx : lead >= gx && probe < gx)) {
+          this.x = gx - sign(dx) * 5.01;
           return false;
         }
       }
@@ -119,15 +127,48 @@
 
   function start() {
     L = Level.parse();
-    bgs = [0, 1, 2].map((r) => Level.renderRoom(L, r));
-    prince = new Actor('prince', 56, floorY(2), 1);
-    const gs = L.spawns.guard;
-    guard = new Actor('guard', gs.c * TW + 16, floorY(gs.r), -1);
-    guard.cool = 60;
+    bgs = Array.from({ length: NROOMS }, (_, i) => Level.renderRoom(L, i));
+    // ?sala=N comença a la sala N, amb les reixes de les sales anteriors ja obertes
+    const sala = Math.max(1, Math.min(NROOMS, parseInt(new URLSearchParams(location.search).get('sala'), 10) || 1)) - 1;
+    for (const t of L.triggers) if (t.c < sala * 10) activate(t, true);
+    const [sc, sr] = Level.START[sala];
+    prince = new Actor('prince', sc * TW + 16, floorY(sr), 1);
+    foes = L.foes.map((f) => {
+      const s = FOE_STATS[f.kind], a = new Actor(f.kind, f.c * TW + 16, floorY(f.r), -1);
+      return Object.assign(a, { hp: s.hp, maxHp: s.hp, stats: s, cool: 60, shout: 0, shoutCool: 0 });
+    });
     debris = []; rubble = []; parts = []; tick = 0;
-    Object.assign(game, { mode: 'play', fade: 0, door: 0, doorTarget: 0, timer: 0 });
+    Object.assign(game, { mode: 'play', fade: 0, timer: 0 });
     overlay.classList.add('hidden');
-    say('Troba la placa que obre la porta del palau...');
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    say(sala ? 'Sala ' + (sala + 1) + '.' : 'Deu sales, palanques, reixes i guardes... troba la sortida del palau!');
+  }
+
+  // una palanca o una placa obre la seva reixa (o la porta de sortida)
+  function activate(t, silent) {
+    if (t.used) return;
+    t.used = 1; t.pressed = 1;
+    const g = t.target;
+    if (!g) return;
+    g.goal = 1;
+    if (silent) { g.open = 1; return; }
+    Snd.play('door');
+    if (g.ch === 'D') say('S\'ha sentit un cruixit llunyà... la porta del palau s\'obre!');
+    else if (Math.floor(g.c / 10) === Math.floor(prince.x / ROOMW)) say('La reixa s\'aixeca!');
+    else say('S\'ha sentit una reixa que s\'aixecava, lluny d\'aquí...');
+  }
+
+  // en Mykola es presenta cridant (i, si el navegador en sap, ho diu en veu alta)
+  function shout(g) {
+    g.shout = 140; g.shoutCool = 360;
+    say('Mykola: «My name is Mykola!»');
+    if (!Snd.ac || !window.speechSynthesis) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('My name is Mykola!');
+      u.lang = 'en-US'; u.pitch = 0.6; u.rate = 1.1;
+      speechSynthesis.speak(u);
+    } catch (e) { /* sense veu */ }
   }
 
   // ---- partícules -------------------------------------------------------------
@@ -182,14 +223,17 @@
     a.hp--; a.flash = 20;
     burst(a.x, a.y - 24, 10, '#c21d2f', 1.8);
     Snd.play('hit');
-    if (a.hp <= 0) { kill(a); if (a === guard) say('El guarda ha caigut!'); }
-    else if (a.sword) a.go('hurt', 'hurt', 2);
-    else { a.sword = true; a.go('hurt', 'hurt', 2); }
+    if (a.hp <= 0) { kill(a); if (a !== prince) say(a.kind === 'mykola' ? 'En Mykola ha caigut. «My name... was... Mykola...»' : 'El guarda ha caigut!'); }
+    else {
+      if (a.kind === 'mykola' && a.shoutCool < 200) shout(a);
+      a.sword = true; a.go('hurt', 'hurt', 2);
+    }
     if (from) a.face = sign(from.x - a.x);
   }
 
   function landOn(a) {
-    const fy = a.y, dist = fy - a.fallStart;
+    // amb la poció ploma qualsevol caiguda és suau
+    const fy = a.y, dist = a.feather > 0 ? 0 : fy - a.fallStart;
     const t = tile(colOf(a.x), a.row);
     burst(a.x, fy, 6, '#8a86a8', 1.2, 0.4);
     if (t.ch === 'L' && !t.shake) t.shake = 1;
@@ -205,7 +249,7 @@
   // física comuna per a 'air' i 'fall'
   function airPhysics(a, g) {
     const prevY = a.y;
-    a.vy = Math.min(a.vy + g, 6);
+    a.vy = Math.min(a.vy + g, a.feather > 0 ? 1.4 : 6);
     if (!a.move(a.vx)) a.vx = 0;
     a.y += a.vy;
     // agafar-se a una vora mentre cau (mantenint Maj)
@@ -229,8 +273,26 @@
 
   const dirHeld = () => (held.right && !held.left ? 1 : held.left && !held.right ? -1 : 0);
 
-  function nearGuard() {
-    return guard.alive && guard.row === prince.row && Math.abs(guard.x - prince.x) < 110 && guard.state !== 'dead';
+  // l'enemic viu més proper a la mateixa fila que l'heroi, a menys de 'range' píxels
+  function foeNear(range) {
+    let best = null;
+    for (const f of foes) {
+      const d = Math.abs(f.x - prince.x);
+      if (f.alive && f.state !== 'dead' && f.row === prince.row && d < range && (!best || d < Math.abs(best.x - prince.x))) best = f;
+    }
+    return best;
+  }
+
+  function drinkEffect(a, it) {
+    const P = POTIONS[it.ch];
+    burst(a.x, a.y - 32, 14, P.hi, 1, 1);
+    if (P.type === 'vida') { if (a.hp < a.maxHp) a.hp++; say('Una poció de vida. Et sents millor.'); }
+    else if (P.type === 'max') { a.maxHp++; a.hp = a.maxHp; say('Una poció gran! Ara aguantes un cop més.'); }
+    else if (P.type === 'ploma') { a.feather = 60 * 30; say('Et sents lleuger com una ploma... una estona, les caigudes no et faran mal.'); }
+    else {
+      a.hp--; a.flash = 20; Snd.play('hit');
+      if (a.hp <= 0) { kill(a); say('Era verí...'); } else say('Puaj! Era verí. Compte amb les pocions verdes.');
+    }
   }
 
   // ---- màquina d'estats de l'heroi -----------------------------------------------
@@ -242,18 +304,20 @@
       return true;
     };
     const checkSpikes = () => { const t = tile(colOf(a.x), a.row); if (t.ch === 'S' && t.ext >= 2) kill(a, 'spikes'); };
+    if (a.feather > 0) a.feather--;
     if (pressed.act && a.sword) a.queued = true;
     const combatReady = ['idle', 'run', 'startRun', 'stop', 'land', 'turn'].includes(a.state);
-    if (combatReady && nearGuard() && a.grounded()) {
-      a.face = sign(guard.x - a.x); a.sword = true; a.vx = 0;
+    const foe = foeNear(110);
+    if (combatReady && foe && a.grounded()) {
+      a.face = sign(foe.x - a.x); a.sword = true; a.vx = 0;
       return a.go('drawSword', 'drawSword', 4);
     }
     switch (a.state) {
       case 'idle': {
         a.vx = 0;
         if (!ground()) return;
-        const dc = colOf(a.x);
-        if (held.up && tile(dc, a.row).ch === 'D' && game.door >= 1) {
+        const dc = colOf(a.x), here = tile(dc, a.row);
+        if (held.up && here.ch === 'D' && here.open >= 1) {
           a.x = dc * TW + 16; a.go('win', 'victory'); Snd.play('win'); say('Llibertat! Has escapat del Palau de la Lluna.');
           return;
         }
@@ -284,9 +348,17 @@
         if (pressed.act) {
           const it = L.items.find((i) => !i.taken && i.r === a.row && Math.abs(i.c * TW + 16 - a.x) < 14);
           if (it) { a.potion = it; return a.go('drink', 'drink'); }
+          if (here.ch === 'V' && !here.used) {
+            a.lever = here; a.x = dc * TW + 16 - a.face * 7;
+            return a.go('pull', 'pull', 4);
+          }
         }
         break;
       }
+      case 'pull':
+        if (a.at === 16) { Snd.play('lever'); activate(a.lever); }
+        if (a.done) a.go('idle', 'idle', 4);
+        break;
       case 'turn':
         if (a.at === 6) a.face = -a.face;
         if (a.done) { if (dirHeld() === a.face) a.go('startRun', 'startRun', 2); else a.go('idle', 'idle', 4); }
@@ -404,16 +476,14 @@
         break;
       case 'fall':
         a.vx *= 0.97;
-        airPhysics(a, 0.2);
+        airPhysics(a, a.feather > 0 ? 0.06 : 0.2);
         break;
       case 'drink':
         if (a.at === 20 && a.potion) { a.potion.taken = true; }
         if (a.at === 40) Snd.play('gulp');
         if (a.done) {
-          if (a.hp < a.maxHp) a.hp++; else { a.maxHp++; a.hp = a.maxHp; }
-          burst(a.x, a.y - 32, 14, '#ff6a7a', 1, 1);
-          say('Una poció! Et sents més fort.');
-          a.go('idle', 'idle', 4);
+          drinkEffect(a, a.potion);
+          if (a.alive) a.go('idle', 'idle', 4);
         }
         break;
       // ---- combat ----
@@ -424,10 +494,10 @@
         break;
       case 'garde': {
         if (!a.grounded()) { a.sword = false; return startFall(a, 0); }
-        const g = guard.alive && guard.row === a.row && Math.abs(guard.x - a.x) < 160;
+        const f = foeNear(160), g = !!f;
         if (!g) { a.gardeT = (a.gardeT || 0) + 1; if (a.gardeT > 40) { a.gardeT = 0; a.sword = false; return a.go('drawDone', 'sheathe', 4); } }
         else a.gardeT = 0;
-        if (g && sign(guard.x - a.x) !== a.face) return a.go('gardeTurn');
+        if (g && sign(f.x - a.x) !== a.face) return a.go('gardeTurn');
         if (a.queued) { a.queued = false; if (g || pressed.act) { Snd.play('swish'); return a.go('strike', 'strike', 3); } }
         if (held.up) return a.go('block', 'block', 2);
         if (held.down && !g) { a.sword = false; return a.go('drawDone', 'sheathe', 4); }
@@ -439,11 +509,13 @@
         if (a.at === 5) a.face = -a.face;
         if (a.done) a.go('garde', 'garde', 0);
         break;
-      case 'advance':
-        if (a.at <= 10 && Math.abs(guard.x - (a.x + a.face)) > 15 || !guard.alive) a.move(a.face * 0.9);
+      case 'advance': {
+        const f = foeNear(160);
+        if (a.at <= 10 && (!f || Math.abs(f.x - (a.x + a.face)) > 15)) a.move(a.face * 0.9);
         if (!a.grounded()) { a.sword = false; return startFall(a, 0); }
         if (a.done) a.go('garde', 'garde', 0);
         break;
+      }
       case 'retreat': {
         const nx = a.x - a.face * 0.9;
         if (a.at <= 10 && isFloor(colOf(nx - a.face * 4), a.row)) a.move(-a.face * 0.9);
@@ -451,7 +523,7 @@
         break;
       }
       case 'strike':
-        if (a.at === 13) resolveHit(a, guard);
+        if (a.at === 13) { const f = foeNear(60); if (f) resolveHit(a, f); }
         if (a.done) a.go('garde', 'garde', 0);
         break;
       case 'block':
@@ -483,15 +555,20 @@
     damage(def, att);
   }
 
-  // ---- IA del guarda -------------------------------------------------------------
-  function updateGuard() {
-    const g = guard, p = prince;
+  // ---- IA dels enemics (guardes i en Mykola) ------------------------------------------
+  function updateFoe(g) {
+    const p = prince, st = g.stats;
     g.at++;
+    if (g.shout > 0) g.shout--;
+    if (g.shoutCool > 0) g.shoutCool--;
     const dx = p.x - g.x, ad = Math.abs(dx);
     const engaged = p.alive && p.row === g.row && ad < 120;
     switch (g.state) {
       case 'idle':
-        if (engaged) { g.face = sign(dx); g.sword = true; g.go('drawSword', 'drawSword', 4); say('Un guarda! Maj/Espai: atacar · Amunt: parar el cop'); }
+        if (engaged) {
+          g.face = sign(dx); g.sword = true; g.go('drawSword', 'drawSword', 4);
+          if (g.kind === 'mykola') shout(g); else say('Un guarda! Maj/Espai: atacar · Amunt: parar el cop');
+        }
         break;
       case 'drawSword':
         if (g.done) g.go('garde', 'garde', 0);
@@ -500,12 +577,13 @@
         g.cool--;
         if (!p.alive) break;
         if (sign(dx) !== g.face) return g.go('gardeTurn');
+        if (g.kind === 'mykola' && g.shoutCool <= 0 && Math.random() < 0.01) shout(g);
         if (p.state === 'strike' && p.at < 9) {
-          if (!g.decided) { g.decided = true; if (Math.random() < 0.45) return g.go('block', 'block', 2); }
+          if (!g.decided) { g.decided = true; if (Math.random() < st.block) return g.go('block', 'block', 2); }
         } else g.decided = false;
         if (ad > 33 && engaged) return g.go('advance');
         if (ad < 18) return g.go('retreat');
-        if (ad <= 38 && g.cool <= 0 && Math.random() < 0.05) { g.cool = 45 + Math.random() * 40; Snd.play('swish'); return g.go('strike', 'strike', 3); }
+        if (ad <= 38 && g.cool <= 0 && Math.random() < st.aggro) { g.cool = 45 + Math.random() * 40; Snd.play('swish'); return g.go('strike', 'strike', 3); }
         break;
       case 'gardeTurn':
         if (g.at === 5) g.face = -g.face;
@@ -551,13 +629,12 @@
             Snd.play('land');
           }
         }
-        if (t.ch === 'B' && pg && p.row === r && colOf(p.x) === c && !t.pressed) {
-          t.pressed = 1; game.doorTarget = 1; Snd.play('door');
-          say('S\'ha sentit un cruixit llunyà... la porta s\'obre!');
-        }
+        const on = pg && p.row === r && colOf(p.x) === c;
+        if (t.ch === 'B' && on && !t.used) activate(t);
+        if (t.ch === 'V' && on && !t.used && !t.hinted) { t.hinted = 1; say('Una palanca. Prem Maj o Espai per estirar-la.'); }
+        if (t.open < t.goal) t.open = Math.min(1, t.open + (t.ch === 'D' ? 0.006 : 0.015));
       }
     }
-    if (game.door < game.doorTarget) game.door = Math.min(1, game.door + 0.006);
     for (const d of debris) {
       const prevY = d.y;
       d.vy = Math.min(d.vy + 0.2, 6); d.y += d.vy;
@@ -586,9 +663,10 @@
   // ---- dibuix -----------------------------------------------------------------
   function drawActor(a, camX) {
     if (a.state === 'dead' && a.y > GAMEH + 40) return;
-    const pose = a.computePose();
+    let pose = a.computePose();
     if (a.flash > 0 && (a.flash-- >> 2) % 2) return;
-    const img = Sprite.drawPose(R, pose, a.kind, { scarf: a.scarf });
+    if (a.shout > 0 && (tick >> 3) % 2) pose = Object.assign({}, pose, { face: 1 });
+    const img = Sprite.drawPose(R, pose, a.kind, { scarf: a.scarf, pot: a.potion && POTIONS[a.potion.ch].color });
     ctx.save();
     ctx.translate(Math.round(a.x - camX), Math.round(a.y));
     ctx.scale(a.face, 1);
@@ -604,8 +682,21 @@
     if ((tick + x) % 9 < 2) { ctx.fillStyle = '#ffb040'; ctx.fillRect(x + Math.round(f), y - 13, 1, 1); }
   }
 
+  // bafarada amb el crit d'en Mykola
+  function drawBubble(a, camX) {
+    const text = 'MY NAME IS MYKOLA!';
+    ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    const w = Math.ceil(ctx.measureText(text).width) + 8, h = 11;
+    const hx = Math.round(a.x - camX), top = Math.max(1, Math.round(a.y) - 60);
+    const bx = Math.max(1, Math.min(W - w - 1, hx - (w >> 1)));
+    ctx.fillStyle = '#0a0c14'; ctx.fillRect(bx - 1, top - 1, w + 2, h + 2);
+    ctx.fillStyle = '#f4efe2'; ctx.fillRect(bx, top, w, h);
+    ctx.fillRect(hx - 2, top + h, 5, 1); ctx.fillRect(hx - 1, top + h + 1, 3, 1); ctx.fillRect(hx, top + h + 2, 1, 1);
+    ctx.fillStyle = '#1a1420'; ctx.fillText(text, bx + w / 2, top + 8);
+  }
+
   function render() {
-    const room = Math.max(0, Math.min(2, Math.floor(prince.x / ROOMW)));
+    const room = Math.max(0, Math.min(NROOMS - 1, Math.floor(prince.x / ROOMW)));
     const camX = room * ROOMW;
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
     ctx.drawImage(bgs[room], 0, 0);
@@ -618,11 +709,13 @@
         if (t.ch === 'T') { drawFlame(x0 + 16, rowTop + 22); torches.push([x0 + 16, rowTop + 18]); }
         if (t.ch === 'D') {
           // reixa de la porta
-          const h = Math.round((1 - game.door) * 44);
+          const h = Math.round((1 - t.open) * 44);
           ctx.fillStyle = '#1c1a26';
           for (let k = 0; k < 6; k++) ctx.fillRect(x0 + 5 + k * 4, fy - 46, 1, h);
           ctx.fillRect(x0 + 4, fy - 46 + h - 2, 24, 2);
         }
+        if (t.ch === 'V') Level.drawLever(ctx, x0, fy, t.used);
+        if (t.ch === 'G') Level.drawGate(ctx, x0, fy, t.open);
         if (t.ch === '#') Level.drawBlock(ctx, x0, rowTop);
         else if (t.ch !== ' ') Level.drawFloorTop(ctx, x0, fy, t, tick);
         if (t.ch === 'S') Level.drawSpikes(ctx, x0, fy, t.ext);
@@ -636,14 +729,17 @@
     }
     for (const it of L.items) {
       if (it.taken || it.c < c0 || it.c >= c0 + 10) continue;
+      // el flascó gran (vida màxima) fa 2 píxels més
+      const P = POTIONS[it.ch], b = P.big ? 2 : 0;
       const x = (it.c - c0) * TW + 22, fy = floorY(it.r);
-      ctx.fillStyle = '#0a0c14'; ctx.fillRect(x - 3, fy - 9, 7, 7); ctx.fillRect(x - 1, fy - 13, 3, 4);
-      ctx.fillStyle = '#d1283a'; ctx.fillRect(x - 2, fy - 8, 5, 5);
-      ctx.fillStyle = '#ff8a9a'; ctx.fillRect(x - 1, fy - 7, 1, 2);
-      ctx.fillStyle = '#c9c3b0'; ctx.fillRect(x, fy - 12, 1, 3);
-      if (tick % 40 < 20) { ctx.fillStyle = '#ff9aa8'; ctx.fillRect(x + 1, fy - 15 - ((tick % 20) >> 2), 1, 1); }
+      ctx.fillStyle = '#0a0c14'; ctx.fillRect(x - 3 - b / 2, fy - 9 - b, 7 + b, 7 + b); ctx.fillRect(x - 1, fy - 13 - b, 3, 4);
+      ctx.fillStyle = P.color; ctx.fillRect(x - 2 - b / 2, fy - 8 - b, 5 + b, 5 + b);
+      ctx.fillStyle = P.hi; ctx.fillRect(x - 1 - b / 2, fy - 7 - b, 1, 2);
+      ctx.fillStyle = '#c9c3b0'; ctx.fillRect(x, fy - 12 - b, 1, 3);
+      if (tick % 40 < 20) { ctx.fillStyle = P.hi; ctx.fillRect(x + 1, fy - 15 - b - ((tick % 20) >> 2), 1, 1); }
     }
-    if (Math.floor(guard.x / ROOMW) === room) drawActor(guard, camX);
+    const inRoom = (a) => Math.floor(a.x / ROOMW) === room;
+    for (const f of foes) if (inRoom(f)) drawActor(f, camX);
     drawActor(prince, camX);
     for (let r = 0; r < ROWS; r++) {
       for (let i = 0; i < 10; i++) {
@@ -658,6 +754,7 @@
       ctx.fillStyle = '#3e3c5a'; ctx.fillRect(x0, d.y, TW, 6);
     }
     for (const q of parts) { ctx.fillStyle = q.color; ctx.fillRect(Math.round(q.x - camX), Math.round(q.y), 1, 1); }
+    for (const f of foes) if (f.shout > 0 && f.alive && inRoom(f)) drawBubble(f, camX);
     // llum càlida de les torxes
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -674,13 +771,19 @@
       ctx.fillStyle = i < prince.hp ? '#e0263a' : '#4a1018';
       for (let k = 0; k < 5; k++) ctx.fillRect(4 + i * 8 + k, GAMEH + 9 - k * 1.4, 7 - k * 2 > 0 ? 7 - k * 2 : 1, 1.4);
     }
-    if (guard.alive && guard.state !== 'idle' && Math.floor(guard.x / ROOMW) === room) {
-      for (let i = 0; i < guard.hp; i++) {
+    ctx.font = '7px monospace';
+    const hf = foes.find((f) => f.alive && f.state !== 'idle' && inRoom(f));
+    if (hf) {
+      for (let i = 0; i < hf.hp; i++) {
         ctx.fillStyle = '#3a8ee0';
         for (let k = 0; k < 5; k++) ctx.fillRect(W - 12 - i * 8 + k, GAMEH + 9 - k * 1.4, 7 - k * 2 > 0 ? 7 - k * 2 : 1, 1.4);
       }
+      if (hf.kind === 'mykola') { ctx.fillStyle = '#9cc4ff'; ctx.textAlign = 'right'; ctx.fillText('MYKOLA', W - 8 - hf.hp * 8, GAMEH + 9); }
     }
-    ctx.fillStyle = '#6e6a8c'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    if (prince.feather > 0 && (prince.feather > 180 || (tick >> 3) % 2)) {
+      ctx.fillStyle = '#e6d36a'; ctx.textAlign = 'left'; ctx.fillText('PLOMA', 8 + prince.maxHp * 8, GAMEH + 9);
+    }
+    ctx.fillStyle = '#6e6a8c'; ctx.textAlign = 'center';
     ctx.fillText('SALA ' + (room + 1), W / 2, GAMEH + 9);
     if (game.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, game.fade)})`; ctx.fillRect(0, 0, W, H); }
   }
@@ -705,19 +808,20 @@
   }
 
   // ---- bucle principal amb pas fix a 60 Hz --------------------------------------
+  function step() {
+    if (game.mode === 'play') {
+      tick++;
+      updatePrince(); for (const f of foes) updateFoe(f); updateWorld();
+      updateScarf(prince);
+      prince.x = Math.max(6, Math.min(COLS * TW - 6, prince.x));
+    }
+    for (const k in pressed) pressed[k] = false;
+  }
+
   let acc = 0, last = performance.now();
   function frame(now) {
     acc += Math.min(100, now - last); last = now;
-    while (acc >= 1000 / 60) {
-      acc -= 1000 / 60;
-      if (game.mode === 'play') {
-        tick++;
-        updatePrince(); updateGuard(); updateWorld();
-        updateScarf(prince);
-        prince.x = Math.max(6, Math.min(COLS * TW - 6, prince.x));
-      }
-      for (const k in pressed) pressed[k] = false;
-    }
+    while (acc >= 1000 / 60) { acc -= 1000 / 60; step(); }
     if (L) render(); else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
     if (!overlay.classList.contains('hidden')) drawPortrait();
     requestAnimationFrame(frame);
@@ -727,5 +831,9 @@
   start(); game.mode = 'title'; overlay.classList.remove('hidden'); say('');
   requestAnimationFrame(frame);
 
-  window.__game = { get prince() { return prince; }, get guard() { return guard; }, game, held, pressed };
+  // per depurar des de la consola: __game.step(n) avança n ticks encara que la pestanya no es vegi
+  window.__game = {
+    get prince() { return prince; }, get foes() { return foes; }, get L() { return L; }, game, held, pressed, start,
+    step(n = 1) { for (let i = 0; i < n; i++) step(); render(); },
+  };
 })();

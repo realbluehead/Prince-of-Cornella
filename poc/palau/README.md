@@ -3,14 +3,28 @@
 Prova de concepte d'un joc de plataformes a l'estil *Prince of Persia*, en HTML5 Canvas i JavaScript pur (sense dependències ni compilació).
 
 - **Jugar:** obre `index.html` al navegador (funciona amb `file://` o amb qualsevol servidor estàtic, p. ex. `npx serve poc/palau`).
-- **Galeria d'animacions:** `sprites.html` mostra totes les animacions de l'heroi i del guarda.
+- **Galeria d'animacions:** `sprites.html` mostra totes les animacions de l'heroi, del guarda i d'en Mykola.
+- **Anar a una sala:** `index.html?sala=7` comença a la sala 7, amb les reixes de les sales anteriors ja obertes.
 
 ## Com funciona
 
 - `js/sprite.js` — esquelet procedural (malucs, genolls, espatlles, colzes, cap, espasa) rasteritzat píxel a píxel amb contorn. L'heroi està inspirat en la foto de referència: cabell i barba foscos amb pèls grisos, jaqueta plomífera blau marí i bufanda negra amb ratlles crues (amb moviment secundari).
 - `js/anims.js` — més de 40 animacions per fotogrames clau amb interpolació: repòs, arrencar a córrer, córrer, frenar, girar, pas amb compte, ajupir-se, gatejar, salt vertical, penjar-se, enfilar-se, despenjar-se, salt endavant, salt llarg, caiguda, aterratges (suau, ajupit, dur), beure poció, mort, punxes, victòria i esgrima (desenfundar, en guàrdia, avançar, recular, atacar, parar, rebre un cop).
-- `js/level.js` — nivell de 3 sales amb pantalla fixa, decorat procedural (maons, finestres amb la ciutat de nit, torxes, columnes, estendards) i trampes.
-- `js/game.js` — màquina d'estats, física, combat amb IA del guarda, rajoles fluixes, punxes, placa de pressió i porta de sortida.
+- `js/level.js` — nivell de 10 sales amb pantalla fixa, decorat procedural (maons, finestres amb la ciutat de nit, torxes, columnes, estendards), trampes, palanques i reixes.
+- `js/game.js` — màquina d'estats, física, combat amb IA dels enemics, rajoles fluixes, punxes, palanques i plaques que obren reixes, pocions i porta de sortida.
+
+## El nivell
+
+Deu sales amb tres guardes i, a l'última, en **Mykola**: porta ulleres negres de pasta i va cridant «My name is Mykola!» (si el navegador pot, també ho diu en veu alta).
+
+| Poció | Color | Efecte |
+|---|---|---|
+| Vida | vermella | recupera un punt de vida |
+| Vida màxima | blava (flascó gran) | un punt de vida més, per sempre |
+| Verí | verda | treu un punt de vida |
+| Ploma | groga | durant 30 s caus a poc a poc i cap caiguda fa mal |
+
+Cada palanca o placa obre una reixa. Algunes reixes són a la mateixa sala i d'altres més endavant.
 
 ## Controls
 
@@ -22,6 +36,6 @@ Prova de concepte d'un joc de plataformes a l'estil *Prince of Persia*, en HTML5
 | ↓ | ajupir-se, despenjar-se d'una vora |
 | Maj + → | pas amb compte (s'atura a la vora) |
 | Maj (mantenir en caure) | agafar-se a una vora |
-| Maj / Espai | beure poció, atacar amb l'espasa |
+| Maj / Espai | beure poció, estirar una palanca, atacar amb l'espasa |
 | ↑ (en combat) | parar el cop |
 | R | reiniciar |

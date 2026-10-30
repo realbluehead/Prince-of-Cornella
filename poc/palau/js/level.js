@@ -5,14 +5,44 @@
   const TW = 32, RH = 63, ROWS = 3, ROOMW = 320, GAMEH = 192;
   // Llegenda: ' ' buit, '_' terra, '#' bloc de pedra, 'T' terra + torxa,
   // 'O' terra + finestra, 'I' terra + columna, 'S' punxes, 'L' rajola fluixa,
-  // 'P' terra + poció, 'B' placa de pressió, 'D' porta de sortida, 'K' guarda.
-  //            sala 1      sala 2      sala 3
-  const MAP = [
-    '#___  O__T' + '__P__#####' + '#____O__##',
-    '#   ___P__' + '_T____L_ _' + '______ B_#',
-    '#_T__  ___' + '___SS__I__' + '_T__K_I_D#',
+  // 'B' placa de pressió, 'V' palanca, 'G' reixa, 'D' porta de sortida,
+  // pocions: 'P' vida, 'Q' vida màxima, 'X' verí, 'F' ploma (caiguda lenta),
+  // enemics: 'K' guarda, 'M' en Mykola.
+  // Cada palanca o placa obre la reixa o porta que li toca per ordre: la
+  // primera activadora (d'esquerra a dreta) obre el primer objectiu, etc.
+  const ROOMS = [
+    // sala 1: enfilar-se, saltar l'abisme
+    ['#___  O__T', '#   ___P__', '#_T__  ___'],
+    // sala 2: punxes, rajola fluixa, poció gran a dalt de tot
+    ['__Q__#####', '_T____L_ _', '___SS__I__'],
+    // sala 3: un guarda i la primera palanca
+    ['##########', '___T_  V_#', '_T__K___G_'],
+    // sala 4: enfilar-se, verí i punxes
+    ['###_O__T__', '# X__SS___', '__T___#___'],
+    // sala 5: pont de rajoles fluixes i una placa que obre la reixa següent
+    ['_O__T__O__', '__LLL__ __', '  ____B___'],
+    // sala 6: reixa, guarda i la poció ploma amagada a dalt
+    ['###F_ ####', '_G_____K__', '_#__T___I_'],
+    // sala 7: palanca al pis de dalt
+    ['#PV_ #####', '______G___', '#__T___O__'],
+    // sala 8: dues palanques i punxes
+    ['__T__O__T_', '_V_G_SS_V_', '__T____I__'],
+    // sala 9: reixa, guarda, poció gran a dalt i un forat
+    ['##_Q_ ####', '_G_____K_ ', '###____P__'],
+    // sala 10: en Mykola, la placa i la porta de sortida
+    ['_T__O__T_#', '#####  B_#', '_T__M_I_D#'],
   ];
-  const COLS = MAP[0].length;
+  const MAP = [0, 1, 2].map((r) => ROOMS.map((s) => s[r]).join(''));
+  const COLS = MAP[0].length, NROOMS = ROOMS.length;
+  // on apareix l'heroi a cada sala (la 1 és l'inici; la resta, per a ?sala=N)
+  const START = [[1, 2], [10, 2], [20, 1], [30, 2], [40, 1], [50, 1], [60, 1], [70, 1], [80, 1], [90, 2]];
+  const POTIONS = {
+    P: { type: 'vida', color: '#d1283a', hi: '#ff8a9a' },
+    Q: { type: 'max', color: '#2f6fe0', hi: '#9cc4ff', big: true },
+    X: { type: 'veri', color: '#3f9a2c', hi: '#b4ec8e' },
+    F: { type: 'ploma', color: '#e6d36a', hi: '#fff8c8' },
+  };
+  const FOES = { K: 'guard', M: 'mykola' };
   const floorY = (r) => r * RH + 60;
 
   // generador pseudoaleatori amb llavor (el decorat és sempre el mateix)
@@ -22,17 +52,24 @@
   }
 
   function parse() {
-    const tiles = [], items = [], spawns = {};
+    const tiles = [], items = [], foes = [], triggers = [], targets = [];
     for (let r = 0; r < ROWS; r++) {
       tiles.push([]);
       for (let c = 0; c < COLS; c++) {
         let ch = MAP[r][c];
-        if (ch === 'P') { items.push({ type: 'potion', c, r, taken: false }); ch = '_'; }
-        if (ch === 'K') { spawns.guard = { c, r }; ch = '_'; }
-        tiles[r].push({ ch, shake: 0, ext: 0, near: 0, pressed: 0 });
+        if (POTIONS[ch]) { items.push({ ch, c, r, taken: false }); ch = '_'; }
+        if (FOES[ch]) { foes.push({ kind: FOES[ch], c, r }); ch = '_'; }
+        const t = { ch, c, r, shake: 0, ext: 0, near: 0, pressed: 0, used: 0, open: 0, goal: 0 };
+        if (ch === 'V' || ch === 'B') triggers.push(t);
+        if (ch === 'G' || ch === 'D') targets.push(t);
+        tiles[r].push(t);
       }
     }
-    return { tiles, items, spawns };
+    const lr = (a, b) => a.c - b.c || a.r - b.r;
+    triggers.sort(lr); targets.sort(lr);
+    if (triggers.length !== targets.length) console.warn('Hi ha', triggers.length, 'palanques/plaques i', targets.length, 'reixes/portes');
+    triggers.forEach((t, i) => { t.target = targets[i]; });
+    return { tiles, items, foes, triggers };
   }
 
   // ---- decorat de fons (pre-renderitzat per sala) --------------------------
@@ -142,7 +179,7 @@
       const rowTop = r * RH, fy = floorY(r);
       for (let i = 0; i < 10; i++) {
         const c = room * 10 + i, ch = level.tiles[r][c].ch, x0 = i * TW;
-        if (ch === 'O') drawWindow(g, R, x0, rowTop, room === 0 || (room === 2 && r === 0));
+        if (ch === 'O') drawWindow(g, R, x0, rowTop, (room + r) % 3 === 0);
         else if (ch === 'I') drawPillar(g, x0, rowTop, fy);
         else if (ch === 'D') drawDoor(g, x0, rowTop, fy);
         else if (ch === '_' && R() < 0.12) drawBanner(g, R, x0, rowTop);
@@ -211,5 +248,30 @@
     }
   }
 
-  window.Level = { TW, RH, ROWS, COLS, ROOMW, GAMEH, MAP, floorY, parse, renderRoom, drawBlock, drawFloorTop, drawFloorFront, drawSpikes };
+  // palanca a la paret: el mànec apunta amunt i, un cop estirada, avall
+  function drawLever(g, x0, fy, on) {
+    const cx = x0 + 16, cy = fy - 22;
+    g.fillStyle = '#2a2838'; g.fillRect(cx - 4, cy - 5, 8, 10);
+    g.fillStyle = '#6e6a8c'; g.fillRect(cx - 3, cy - 4, 6, 8);
+    const dir = on ? 1 : -1;
+    g.fillStyle = '#3a2a1a';
+    for (let i = 0; i < 9; i++) g.fillRect(cx + Math.round(i * 0.4), cy + dir * i, 2, 1);
+    g.fillStyle = on ? '#5fc46e' : '#d6a92a'; g.fillRect(cx + 3, cy + dir * 9 - 1, 3, 3);
+    g.fillStyle = '#1c1a26'; g.fillRect(cx - 1, cy - 1, 2, 2);
+  }
+
+  // reixa que puja (open = 0 tancada, 1 oberta); barra el pas pel mig de la rajola
+  function drawGate(g, x0, fy, open) {
+    const top = fy - 50, h = Math.round((1 - open) * 47);
+    g.fillStyle = '#7a77a0'; g.fillRect(x0 + 9, top - 4, 14, 4);
+    g.fillStyle = '#3a3858'; g.fillRect(x0 + 9, top, 14, 1);
+    if (h <= 0) return;
+    g.fillStyle = '#16141f';
+    for (const bx of [11, 15, 19]) g.fillRect(x0 + bx, top, 2, h + 2);
+    for (let y = top + 4; y < top + h - 1; y += 7) g.fillRect(x0 + 10, y, 12, 2);
+    g.fillStyle = '#5a5778';
+    for (const bx of [11, 15, 19]) g.fillRect(x0 + bx, top, 1, h);
+  }
+
+  window.Level = { TW, RH, ROWS, COLS, NROOMS, ROOMW, GAMEH, MAP, START, POTIONS, floorY, parse, renderRoom, drawBlock, drawFloorTop, drawFloorFront, drawSpikes, drawLever, drawGate };
 })();
