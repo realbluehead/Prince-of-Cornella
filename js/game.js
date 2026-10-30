@@ -692,6 +692,18 @@
     overlay.querySelector('.go').textContent = 'Prem R o toca per tornar a jugar';
   }
 
+  // retrat de l'heroi a la pantalla de títol (en guàrdia, amb la bufanda al vent)
+  const portrait = document.getElementById('portrait');
+  const pctx = portrait.getContext('2d');
+  pctx.imageSmoothingEnabled = false;
+  let ptick = 0;
+  function drawPortrait() {
+    ptick++;
+    const img = Sprite.drawPose(R, Anims.poseAt(A.garde, ptick), 'prince', { scarf: 8 + Math.sin(ptick / 9) * 22 });
+    pctx.clearRect(0, 0, portrait.width, portrait.height);
+    pctx.drawImage(img, -26, -20);
+  }
+
   // ---- bucle principal amb pas fix a 60 Hz --------------------------------------
   let acc = 0, last = performance.now();
   function frame(now) {
@@ -707,6 +719,7 @@
       for (const k in pressed) pressed[k] = false;
     }
     if (L) render(); else { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); }
+    if (!overlay.classList.contains('hidden')) drawPortrait();
     requestAnimationFrame(frame);
   }
 

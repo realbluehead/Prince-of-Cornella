@@ -1,4 +1,4 @@
-# Les Ombres del Palau (POC)
+# Prince of Cornellà (POC)
 
 Prova de concepte d'un joc de plataformes a l'estil *Prince of Persia*, en HTML5 Canvas i JavaScript pur (sense dependències ni compilació).
 
