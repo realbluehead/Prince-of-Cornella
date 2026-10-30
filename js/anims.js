@@ -7,7 +7,7 @@
 
   const P = (p) => resolve(p);
   // pose "a terra" desplaçada horitzontalment respecte l'ancoratge
-  const at = (p, hx) => Object.assign(resolve(p), { hx });
+  const at = (p, hx) => resolve(Object.assign({}, p, { hx }));
 
   // ---- poses base ----------------------------------------------------------
   const STAND = P({ rh: 4, rk: 3, lh: -3, lk: 2 });
@@ -34,7 +34,7 @@
   const C1 = P({ g: 0, hx: -4, hy: 12, t: -6, rs: 60, re: 140, ls: 55, le: 135, rh: 20, rk: 40, lh: -10, lk: 30, ra: 20, la: 20 });
   const C2 = P({ g: 0, hx: 0, hy: 2, t: 22, hd: 5, rs: -60, re: 120, ls: -55, le: 115, rh: 100, rk: 110, lh: -10, lk: 30 });
   const C3 = at({ t: 30, hd: -10, rh: 75, rk: 100, lh: 15, lk: 110, la: -20, rs: 25, re: 30, ls: 20, le: 35 }, 8);
-  const C4 = Object.assign({}, STAND, { hx: 10 });
+  const C4 = at({ rh: 4, rk: 3, lh: -3, lk: 2 }, 10);
 
   function reverse(frames) {
     const n = frames.length;
