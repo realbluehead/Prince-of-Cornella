@@ -49,6 +49,15 @@
       pants: '#3d5a8a', pantsD: '#283d61', boot: '#ebe7de', bootD: '#b3ada2',
       blade: '#dfe4ec', hilt: '#a8a8b0',
     },
+    // l'Olivia: nena de cabell ros i llarg, ulls blaus, samarreta rosa i bambes blanques
+    olivia: {
+      outline: '#2a1a14', skin: '#f6d2b4', skinD: '#dcaa88', hair: '#f2cf62', beard: '#f2cf62',
+      beardL: '#f2cf62', eye: '#2f80e8', mouth: '#c8466a', teeth: '#ffffff',
+      body: '#f06aa8', bodyL: '#ffa2cf', bodyD: '#b84a80', sleeve: '#f06aa8', sleeveD: '#b84a80',
+      fore: '#f6d2b4', foreD: '#dcaa88',
+      pants: '#7a64d8', pantsD: '#5544a8', boot: '#ffffff', bootD: '#c8c8d8',
+      blade: '#dfe4ec', hilt: '#a8a8b0',
+    },
   };
   const PAL32 = {};
   for (const k in PALETTES) {
@@ -99,6 +108,23 @@
       '...SSSS..',
     ],
   };
+  // l'Olivia: serrell ros i la cabellera que li baixa per darrere. L'ull blau fa
+  // més d'un píxel perquè no desaparegui quan es dibuixa a escala 0.8.
+  HEADS.olivia = [
+    '..HHHHH..',
+    '.HHHHHHH.',
+    'HHHHHHHHH',
+    'HHHHHHHHH',
+    'HHHHSSSSS',
+    'HHHSSEESS',
+    'HHHsSSESS',
+    'HHHHSSSS.',
+    'HHHH.SrS.',
+    'HHHH.....',
+    '.HHH.....',
+  ];
+  HEADS.oliviaShout = HEADS.olivia.slice();
+  HEADS.oliviaShout[8] = 'HHHH.Srr.';
   // l'heroi d'esquena (quan entra per la porta): només cabell, orelles i clatell
   HEADS.princeBack = [
     '..HHHHH..',
@@ -262,7 +288,7 @@
 
   const add = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k];
 
-  // Dibuixa una pose completa al buffer. kind: 'prince' | 'guard' | 'mykola'.
+  // Dibuixa una pose completa al buffer. kind: 'prince' | 'guard' | 'mykola' | 'olivia'.
   // extra.scarf = angle de la cua de la bufanda (moviment secundari),
   // extra.pot = color de la poció que té a la mà.
   function drawPose(R, p, kind, extra) {
@@ -300,6 +326,12 @@
     R.part(armParts(s.ba, true), O);
     R.part(legParts(s.bl, true), O);
     R.part(legParts(s.fl, false), O);
+
+    // cabell llarg de l'Olivia, que li penja per l'esquena
+    if (kind === 'olivia') {
+      const hd = T(s.head), sh = T(s.sh);
+      R.part([[add([hd[0], hd[1] + 2], s.fwd, -3), add(add(sh, s.fwd, -2.5), s.up, -9), 2.4, 1.8, pal.hair]], O);
+    }
 
     // tors (jaqueta plomífera / armilla)
     const tb = add(hip, s.up, -1.5);

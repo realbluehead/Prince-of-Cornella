@@ -163,6 +163,31 @@
         [STAND, 1],
       ],
     },
+    // ---- l'Olivia: caminar a poc a poc, gronxar-se cantant i llançar la bola ----
+    walk: {
+      loop: true,
+      frames: [
+        [P({ t: 2, rh: 22, rk: 8, lh: -18, lk: 20, rs: -20, re: 20, ls: 20, le: 20 }), 10],
+        [P({ t: 2, rh: 2, rk: 18, lh: 6, lk: 40, rs: -2, re: 20, ls: 2, le: 20 }), 10],
+        [P({ t: 2, lh: 22, lk: 8, rh: -18, rk: 20, ls: -20, le: 20, rs: 20, re: 20 }), 10],
+        [P({ t: 2, lh: 2, lk: 18, rh: 6, rk: 40, ls: -2, le: 20, rs: 2, re: 20 }), 10],
+      ],
+    },
+    sway: {
+      loop: true,
+      frames: [
+        [P({ t: 5, hx: 1, hd: 6, rs: 100, re: 80, ls: -30, le: 60, rh: 6, lh: -4 }), 20],
+        [P({ t: -5, hx: -1, hd: -6, rs: -30, re: 60, ls: 100, le: 80, rh: 6, lh: -4 }), 20],
+      ],
+    },
+    throw: {
+      frames: [
+        [STAND, 6],
+        [P({ t: -6, rs: 160, re: 60, ls: -20, le: 20, rh: 10, lh: -12 }), 10],
+        [P({ t: 12, rs: 70, re: 0, ls: -30, le: 20, rh: 25, rk: 15, lh: -15, lk: 10 }), 6],
+        [STAND, 10],
+      ],
+    },
     macarena: { frames: MACARENA },
     gangnam: { frames: GANGNAM },
     enterTurn: { frames: [[STAND, 6], [P({ t: 2, rh: 8, rk: 10, lh: -6, lk: 8, rs: 10, re: 20, ls: -10, le: 20 }), 6], [BACK, 1]] },
