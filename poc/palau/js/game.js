@@ -180,7 +180,7 @@
 
   function damage(a, from) {
     a.hp--; a.flash = 20;
-    burst(a.x, a.y - 30, 10, '#c21d2f', 1.8);
+    burst(a.x, a.y - 24, 10, '#c21d2f', 1.8);
     Snd.play('hit');
     if (a.hp <= 0) { kill(a); if (a === guard) say('El guarda ha caigut!'); }
     else if (a.sword) a.go('hurt', 'hurt', 2);
@@ -210,7 +210,7 @@
     a.y += a.vy;
     // agafar-se a una vora mentre cau (mantenint Maj)
     if (a.vy > 0 && held.act) {
-      const h0 = prevY - 50, h1 = a.y - 50;
+      const h0 = prevY - 40, h1 = a.y - 40;
       for (let r = 0; r < ROWS; r++) {
         const fy = floorY(r);
         if (h0 < fy && h1 >= fy) {
@@ -379,13 +379,13 @@
         if (!held.down) a.waitRelease = false;
         if (held.up) return a.go('climb', 'climb', 0);
         if ((held.down && !a.waitRelease) || (pressed.act && !held.up)) {
-          a.y = a.hangY + 50; a.x = a.edgeX - a.face * 5; a.fallStart = a.y;
+          a.y = a.hangY + 40; a.x = a.edgeX - a.face * 4; a.fallStart = a.y;
           startFall(a, 0); a.fallStart = a.y;
         }
         break;
       case 'climb':
         if (a.done) {
-          a.x = a.edgeX + a.face * 10; a.y = a.hangY;
+          a.x = a.edgeX + a.face * 8; a.y = a.hangY;
           a.pose = null; a.go('idle', 'idle', 0);
           const t = tile(colOf(a.x), a.row);
           if (t.ch === 'L' && !t.shake) t.shake = 1;
@@ -411,7 +411,7 @@
         if (a.at === 40) Snd.play('gulp');
         if (a.done) {
           if (a.hp < a.maxHp) a.hp++; else { a.maxHp++; a.hp = a.maxHp; }
-          burst(a.x, a.y - 40, 14, '#ff6a7a', 1, 1);
+          burst(a.x, a.y - 32, 14, '#ff6a7a', 1, 1);
           say('Una poció! Et sents més fort.');
           a.go('idle', 'idle', 4);
         }
@@ -440,7 +440,7 @@
         if (a.done) a.go('garde', 'garde', 0);
         break;
       case 'advance':
-        if (a.at <= 10 && Math.abs(guard.x - (a.x + a.face)) > 18 || !guard.alive) a.move(a.face * 0.9);
+        if (a.at <= 10 && Math.abs(guard.x - (a.x + a.face)) > 15 || !guard.alive) a.move(a.face * 0.9);
         if (!a.grounded()) { a.sword = false; return startFall(a, 0); }
         if (a.done) a.go('garde', 'garde', 0);
         break;
@@ -474,10 +474,10 @@
   function resolveHit(att, def) {
     if (!def.alive || def.row !== att.row) return;
     const dx = def.x - att.x, ad = Math.abs(dx);
-    if (sign(dx) !== att.face || ad < 8 || ad > 46) return;
+    if (sign(dx) !== att.face || ad < 6 || ad > 38) return;
     if (def.state === 'block' && def.at >= 2) {
       Snd.play('clang');
-      burst(att.x + att.face * ad * 0.55, att.y - 34, 12, '#fff3a0', 2.5, 1);
+      burst(att.x + att.face * ad * 0.55, att.y - 27, 12, '#fff3a0', 2.5, 1);
       return;
     }
     damage(def, att);
@@ -503,16 +503,16 @@
         if (p.state === 'strike' && p.at < 9) {
           if (!g.decided) { g.decided = true; if (Math.random() < 0.45) return g.go('block', 'block', 2); }
         } else g.decided = false;
-        if (ad > 40 && engaged) return g.go('advance');
-        if (ad < 22) return g.go('retreat');
-        if (ad <= 46 && g.cool <= 0 && Math.random() < 0.05) { g.cool = 45 + Math.random() * 40; Snd.play('swish'); return g.go('strike', 'strike', 3); }
+        if (ad > 33 && engaged) return g.go('advance');
+        if (ad < 18) return g.go('retreat');
+        if (ad <= 38 && g.cool <= 0 && Math.random() < 0.05) { g.cool = 45 + Math.random() * 40; Snd.play('swish'); return g.go('strike', 'strike', 3); }
         break;
       case 'gardeTurn':
         if (g.at === 5) g.face = -g.face;
         if (g.done) g.go('garde', 'garde', 0);
         break;
       case 'advance':
-        if (g.at <= 10 && ad > 20) g.move(g.face * 0.8);
+        if (g.at <= 10 && ad > 16) g.move(g.face * 0.8);
         if (g.done) g.go('garde', 'garde', 0);
         break;
       case 'retreat':
@@ -561,7 +561,7 @@
     for (const d of debris) {
       const prevY = d.y;
       d.vy = Math.min(d.vy + 0.2, 6); d.y += d.vy;
-      if (!d.hit && p.alive && colOf(p.x) === d.c && d.y > p.y - 46 && d.y < p.y - 10 && p.state !== 'dead') {
+      if (!d.hit && p.alive && colOf(p.x) === d.c && d.y > p.y - 38 && d.y < p.y - 8 && p.state !== 'dead') {
         d.hit = true; damage(p); say('Compte amb les rajoles fluixes!');
       }
       for (let r = 0; r < ROWS; r++) {
@@ -701,7 +701,7 @@
     ptick++;
     const img = Sprite.drawPose(R, Anims.poseAt(A.garde, ptick), 'prince', { scarf: 8 + Math.sin(ptick / 9) * 22 });
     pctx.clearRect(0, 0, portrait.width, portrait.height);
-    pctx.drawImage(img, -20, -10);
+    pctx.drawImage(img, -26, -20);
   }
 
   // ---- bucle principal amb pas fix a 60 Hz --------------------------------------
