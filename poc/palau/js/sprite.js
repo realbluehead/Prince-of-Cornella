@@ -5,7 +5,9 @@
   'use strict';
 
   const D2R = Math.PI / 180;
-  const SK = { thigh: 11, shin: 11, torso: 13, sh: 11, uarm: 8, farm: 8, foot: 4, neck: 5 };
+  // escala global del personatge respecte les mides de disseny originals
+  const S = 0.8;
+  const SK = { thigh: 11 * S, shin: 11 * S, torso: 13 * S, sh: 11 * S, uarm: 8 * S, farm: 8 * S, foot: 4 * S, neck: 4 };
   const BUF_W = 112, BUF_H = 128, OX = 56, OY = 70;
 
   // 0° = cap avall, angles positius = cap endavant (cap on mira el personatge)
@@ -48,53 +50,37 @@
   // E ull, B barba, b barba grisa, r boca, w dents, T/t turbant, j joia.
   const HEADS = {
     prince: [
-      '...HHHHH...',
-      '.HHHHHHHHH.',
-      'HHHHHHHHHHH',
-      'HHHHHHHHHH.',
-      'HHHHHSSSSS.',
-      'HHHHSSShhS.',
-      'HHHsSSSSES.',
-      'HHssSSSSSSS',
-      '.HHsSSSSSS.',
-      '.HBBSSBBBBB',
-      '..BBBBBBBB.',
-      '..BbBBBBB..',
-      '...BBBbB...',
-    ],
-    princeShout: [
-      '...HHHHH...',
-      '.HHHHHHHHH.',
-      'HHHHHHHHHHH',
-      'HHHHHHHHHH.',
-      'HHHHHSSSSS.',
-      'HHHHSSShhS.',
-      'HHHsSSSSES.',
-      'HHssSSSSSSS',
-      '.HHsSSSSSS.',
-      '.HBBSSBBBBB',
-      '..BBBBBwwwB',
-      '..BbBBBrrB.',
-      '...BBBbBB..',
+      '..HHHHH..',
+      '.HHHHHHH.',
+      'HHHHHHHHH',
+      'HHHHSSSS.',
+      'HHHSShhS.',
+      'HHsSSSES.',
+      'HssSSSSSS',
+      '.HsSSSSS.',
+      '.BBSBBBBB',
+      '..BBBBBB.',
+      '...BbBB..',
     ],
     guard: [
-      '...TTTTT...',
-      '.TTtTTTTTT.',
-      'TTTTTTTtTTT',
-      'TtTTTTTTjT.',
-      'TTTTTTTTTT.',
-      'HHHHSSShhS.',
-      'HHHsSSSSES.',
-      'HHssSSSSSSS',
-      '.HHsSSSSSS.',
-      '.HHsSSBBBBS',
-      '..SSSSSSSS.',
-      '..SSSSSSS..',
-      '...SSSSS...',
+      '..TTTTT..',
+      '.TTtTTTT.',
+      'TTTTTTjTT',
+      'TtTTTTTT.',
+      'HHHSShhS.',
+      'HHsSSSES.',
+      'HssSSSSSS',
+      '.HsSSSSS.',
+      '.HHSBBBBS',
+      '..SSSSSS.',
+      '...SSSS..',
     ],
   };
+  HEADS.princeShout = HEADS.prince.slice();
+  HEADS.princeShout[9] = '..BBBwwB.';
+  HEADS.princeShout[10] = '...BrrB..';
   HEADS.guardShout = HEADS.guard.slice();
-  HEADS.guardShout[10] = '..SSSSSrrS.';
+  HEADS.guardShout[9] = '..SSSrrS.';
   const HEAD_KEYS = {
     H: 'hair', h: 'hair', S: 'skin', s: 'skinD', E: 'eye', B: 'beard', b: 'beardL',
     r: 'mouth', w: 'teeth', T: 'turban', t: 'turbanD', j: 'jewel',
@@ -143,6 +129,8 @@
   // calcula l'alçada del maluc perquè el peu més baix toqui el terra.
   function resolve(p) {
     const r = Object.assign({}, DEF, p);
+    r.hx *= S;
+    if (!r.g) r.hy *= S;
     if (r.g) {
       const s = skeleton(r);
       let low = -99;
@@ -212,7 +200,7 @@
     }
     bitmap(rows, cx, cy, pal, outline) {
       const h = rows.length, w = rows[0].length;
-      const x0 = Math.round(cx) - 5, y0 = Math.round(cy) - 7;
+      const x0 = Math.round(cx) - (w >> 1), y0 = Math.round(cy) - Math.round(h * 0.55);
       for (let y = 0; y < h; y++)
         for (let x = 0; x < w; x++)
           if (rows[y][x] !== '.')
@@ -246,7 +234,7 @@
     const T = (v) => [base[0] + v[0], base[1] + v[1]];
     const hip = base;
     const guard = kind === 'guard';
-    const thighR = guard ? 3.2 : 2.6, shinR = guard ? 2.5 : 2.0;
+    const thighR = guard ? 2.7 : 2.1, shinR = guard ? 2.1 : 1.6;
 
     function legParts(L, dark) {
       const k = T(L.knee), a = T(L.ankle), toe = T(L.toe);
@@ -254,16 +242,16 @@
       return [
         [hip, k, thighR, shinR + 0.2, dark ? pal.pantsD : pal.pants],
         [k, mid, shinR, shinR, dark ? pal.pantsD : pal.pants],
-        [mid, a, 1.9, 1.8, dark ? pal.bootD : pal.boot],
-        [a, toe, 1.6, 1.3, dark ? pal.bootD : pal.boot],
+        [mid, a, 1.6, 1.5, dark ? pal.bootD : pal.boot],
+        [a, toe, 1.3, 1.0, dark ? pal.bootD : pal.boot],
       ];
     }
     function armParts(A, dark) {
       const sh = T(s.sh), e = T(A.elbow), h = T(A.hand);
       return [
-        [sh, e, 2.1, 1.9, dark ? pal.sleeveD : pal.sleeve],
-        [e, h, 1.8, 1.5, dark ? pal.foreD : pal.fore],
-        [h, h, 1.6, 1.6, dark ? pal.skinD : pal.skin],
+        [sh, e, 1.7, 1.5, dark ? pal.sleeveD : pal.sleeve],
+        [e, h, 1.4, 1.2, dark ? pal.foreD : pal.fore],
+        [h, h, 1.3, 1.3, dark ? pal.skinD : pal.skin],
       ];
     }
 
@@ -275,16 +263,16 @@
     // tors (jaqueta plomífera / armilla)
     const tb = add(hip, s.up, -1.5);
     const tt = T(s.sh);
-    R.part([[tb, tt, 4.6, 5.0, pal.body]], O);
+    R.part([[tb, tt, 3.7, 4.1, pal.body]], O);
     for (const f of [0.3, 0.62]) {
       const c = [tb[0] + (tt[0] - tb[0]) * f, tb[1] + (tt[1] - tb[1]) * f];
-      R.seg(add(c, s.fwd, -4.2), add(c, s.fwd, 4.2), 0.3, 0.3, pal.bodyD);
+      R.seg(add(c, s.fwd, -3.4), add(c, s.fwd, 3.4), 0.3, 0.3, pal.bodyD);
     }
-    const hl0 = add([tb[0] + (tt[0] - tb[0]) * 0.4, tb[1] + (tt[1] - tb[1]) * 0.4], s.fwd, 2.3);
-    const hl1 = add(tt, s.fwd, 2.3);
+    const hl0 = add([tb[0] + (tt[0] - tb[0]) * 0.4, tb[1] + (tt[1] - tb[1]) * 0.4], s.fwd, 1.8);
+    const hl1 = add(tt, s.fwd, 1.8);
     R.seg(hl0, hl1, 0.6, 0.8, pal.bodyL);
     if (guard) {
-      R.seg(add(hip, s.fwd, -4), add(hip, s.fwd, 4), 1.4, 1.4, pal.sash);
+      R.seg(add(hip, s.fwd, -3.3), add(hip, s.fwd, 3.3), 1.1, 1.1, pal.sash);
     }
 
     // cap
@@ -294,16 +282,16 @@
     // bufanda (només l'heroi)
     if (!guard) {
       const nk = T(s.neck);
-      R.disc(nk[0], nk[1] + 1, 3.6, O);
-      R.disc(nk[0], nk[1] + 1, 2.7, pal.scarf);
+      R.disc(nk[0], nk[1] + 1, 3.0, O);
+      R.disc(nk[0], nk[1] + 1, 2.2, pal.scarf);
       R.px(Math.round(nk[0] + 2), Math.round(nk[1] + 1), pal.stripe);
       R.px(Math.round(nk[0] + 1), Math.round(nk[1] + 2), pal.stripe);
       R.px(Math.round(nk[0] - 1), Math.round(nk[1] + 3), pal.stripe2);
       const ta = extra.scarf == null ? 8 : extra.scarf;
-      const t0 = add(nk, s.fwd, 1.6);
+      const t0 = add(nk, s.fwd, 1.3);
       const td = dirv(ta + p.t * 0.5);
-      const t1 = [t0[0] + td[0] * 8, t0[1] + 2 + td[1] * 8];
-      R.part([[[t0[0], t0[1] + 2], t1, 1.5, 1.3, pal.scarf]], O);
+      const t1 = [t0[0] + td[0] * 6.5, t0[1] + 2 + td[1] * 6.5];
+      R.part([[[t0[0], t0[1] + 2], t1, 1.2, 1.0, pal.scarf]], O);
       for (const f of [0.7, 0.9]) {
         R.px(Math.round(t0[0] + (t1[0] - t0[0]) * f), Math.round(t0[1] + 2 + (t1[1] - t0[1] - 2) * f), pal.stripe);
       }
@@ -314,14 +302,14 @@
     if (p.sw != null) {
       const d = dirv(p.sw);
       const perp = [d[1], -d[0]];
-      const tip = add(hand, d, 16);
+      const tip = add(hand, d, 13);
       R.seg(add(hand, d, -2), hand, 1.6, 1.6, O);
       if (guard) {
         // simitarra: fulla corbada
         const pts = [];
         for (let i = 0; i <= 8; i++) {
           const f = i / 8;
-          pts.push(add(add(hand, d, 1 + 15 * f), perp, -2.2 * f * f));
+          pts.push(add(add(hand, d, 1 + 12 * f), perp, -1.8 * f * f));
         }
         for (let i = 0; i < 8; i++) R.seg(pts[i], pts[i + 1], 1.3, 1.0, O);
         for (let i = 0; i < 8; i++) R.seg(pts[i], pts[i + 1], 0.6, 0.3, pal.blade);
@@ -329,16 +317,16 @@
         R.seg(add(hand, d, 1), tip, 1.3, 1.1, O);
         R.seg(add(hand, d, 1), tip, 0.6, 0.3, pal.blade);
       }
-      R.seg(add(add(hand, d, 1), perp, -3), add(add(hand, d, 1), perp, 3), 0.6, 0.6, pal.hilt);
+      R.seg(add(add(hand, d, 1), perp, -2.5), add(add(hand, d, 1), perp, 2.5), 0.6, 0.6, pal.hilt);
     }
     R.part(armParts(s.fa, false), O);
     if (p.pot) {
-      R.disc(hand[0] + 1, hand[1] - 1, 2.6, O);
-      R.disc(hand[0] + 1, hand[1] - 1, 1.6, hex('#d1283a'));
-      R.px(Math.round(hand[0] + 1), Math.round(hand[1] - 4), hex('#c9c3b0'));
+      R.disc(hand[0] + 1, hand[1] - 1, 2.2, O);
+      R.disc(hand[0] + 1, hand[1] - 1, 1.3, hex('#d1283a'));
+      R.px(Math.round(hand[0] + 1), Math.round(hand[1] - 3), hex('#c9c3b0'));
     }
     return R.flush();
   }
 
-  window.Sprite = { SK, DEF, OX, OY, BUF_W, BUF_H, PALETTES, resolve, lerpPose, skeleton, drawPose, Renderer, hex };
+  window.Sprite = { S, SK, DEF, OX, OY, BUF_W, BUF_H, PALETTES, resolve, lerpPose, skeleton, drawPose, Renderer, hex };
 })();
